@@ -2048,3 +2048,9 @@ body.console .layout main {
 .genre-chips + .validation {
   margin-top: 0.75rem;
 }
+/* Organiser's YouTube player: less than half the old 16:9 height (about 203 px on a phone). */
+.embed-host.youtube {
+  min-height: 0;
+  height: 96px;
+  aspect-ratio: auto;
+}
