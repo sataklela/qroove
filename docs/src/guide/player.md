@@ -56,7 +56,7 @@ information unavailable"). When a guest song becomes due it starts when the stat
 at the latest after 5 minutes, or at once if you press **Play the queued song now**. The station may play
 hour-long DJ mixes, which is why the 5-minute limit exists. Guests see "Radio fallback" on _Now playing_.
 Radio tracks are not anyone's request and never use anyone's allowance; they can change the genre the
-queue sees as last played but never lengthen a run. Stations are listed in `packages/config/src/radio.ts`.
+queue sees as last played but never count toward a run. Stations are listed in `packages/config/src/radio.ts`.
 Only Bachata Sensual Radio is on; see [ADR 0023](/adr/0023-radio-fallback).
 
 ## Tips

@@ -21,8 +21,8 @@ describe('applyRadioPlay (ADR 0023)', () => {
         const n = applyRadioPlay(h, g);
         expect(n.playedKeys).toEqual(h.playedKeys);
         if (h.lastStyle === g) expect(n).toEqual(h);
-        else expect(n.runLength).toBe(1);
-        expect(n.runLength).toBeLessThanOrEqual(Math.max(h.runLength, 1));
+        else expect(n.runLength).toBe(0);
+        expect(n.runLength).toBeLessThanOrEqual(h.runLength);
       }
     }
   });
@@ -32,7 +32,7 @@ describe('applyRadioPlay (ADR 0023)', () => {
     expect(a.transitionCount).toBe(0);
     expect(applyRadioPlay(a, 'salsa')).toMatchObject({
       lastStyle: 'salsa',
-      runLength: 1,
+      runLength: 0,
       transitionCount: 1,
     });
   });

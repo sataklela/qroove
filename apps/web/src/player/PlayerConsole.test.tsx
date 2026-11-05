@@ -359,6 +359,29 @@ describe('PlayerConsole radio fallback', () => {
     );
   });
 
+  it('does not retry in a loop when the browser refuses to play, and offers a tap', async () => {
+    adminState = radioState(false);
+    const user = userEvent.setup();
+    open();
+    const play = vi.fn(async () => undefined);
+    HTMLMediaElement.prototype.play = play;
+    await user.click(await screen.findByRole('button', { name: 'Start radio' })); // unlocks
+    await waitFor(() => expect(radioCalls().length).toBeGreaterThan(0));
+    play.mockClear();
+    HTMLMediaElement.prototype.play = vi.fn(async () => {
+      throw new DOMException('no', 'NotAllowedError');
+    });
+    const refused = vi.mocked(HTMLMediaElement.prototype.play);
+    // The station track ends (stream error): the radio stops and tries once.
+    const audio = document.querySelectorAll('audio')[1]!;
+    act(() => {
+      audio.dispatchEvent(new Event('error'));
+    });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(refused.mock.calls.length).toBeLessThanOrEqual(2);
+    expect(await screen.findByRole('button', { name: 'Start radio' })).toBeInTheDocument();
+  });
+
   it('does not start radio while a guest song is waiting', async () => {
     adminState = radioState(true);
     open();

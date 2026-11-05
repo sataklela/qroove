@@ -81,7 +81,7 @@ export const toCandidate = (r: RequestDoc): Candidate => ({
 
 /**
  * A radio track played on its own (ADR 0023). It is real music, so it can change the last genre,
- * but it never extends a run: another track of the genre already playing leaves the run as it is.
+ * but it never counts toward a run: the run restarts at zero on a genre change, and another track of the genre already playing leaves it as it is.
  * That keeps radio from using up a genre's cap or blocking guests' songs. Radio is system-owned, so
  * no key or participant is recorded.
  */
@@ -90,7 +90,10 @@ export function applyRadioPlay(h: HistoryDoc, genre: string): HistoryDoc {
   return {
     ...h,
     lastStyle: genre,
-    runLength: 1,
+    // Zero, not one: radio is not a guest song, so it must not count toward the genre's cap. A guest
+    // song of the genre radio is playing can still follow it (with a cap of 1, one would otherwise
+    // wait for another genre that radio might never supply).
+    runLength: 0,
     transitionCount: h.transitionCount + (h.lastStyle === null ? 0 : 1),
   };
 }

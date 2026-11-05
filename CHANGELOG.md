@@ -6,7 +6,8 @@ versioning: [SemVer](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- **Radio fallback.** An organiser switch (off by default) plays a live station when no guest song is due: Bachata Sensual Radio is enabled (Salsa, Other and Cha-cha have no verified station yet; SalsaViva answered 401). The player tells the server which radio track is audible (`POST /player/radio/started` and `/ended`, `POST /admin/radio`); radio updates the genre history without being anyone's request and never extends a run; a waiting guest song takes over at the station's next track, after 5 minutes at most, or on _Play the queued song now_. Guests see "Radio fallback" on _Now playing_. ADR 0023.
+
+- **Radio fallback.** An organiser switch (off by default) plays a live station when no guest song is due: Bachata Sensual Radio is enabled (Salsa, Other and Cha-cha have no verified station yet; SalsaViva answered 401). The player tells the server which radio track is audible (`POST /player/radio/started` and `/ended`, `POST /admin/radio`); radio updates the genre history without being anyone's request and never counts toward a run; a waiting guest song takes over at the station's next track, after 5 minutes at most, or on _Play the queued song now_. Guests see "Radio fallback" on _Now playing_. ADR 0023.
 - UI overhaul of the two main screens. **Live deck:** a header with the real live/paused/ended/reconnecting state, a wide _Now playing_ card beside a narrow _Next up_ card (a time only when the queue is sure of it), a compact _Add music_ card showing your accepted-songs count and genre chips, and a _My songs_ card in play order with a collapsible _Played songs (n)_. The old _Up next_ list is now the collapsed _Whole queue_. **Planner:** three drums in one row (total duration, songs in a row, songs per person), a _Synced parameters_ switch (5 songs per 15 minutes, 5 to 50), one card per genre with a separate non-Latin switch, a _Visual event progression_ preview drawn by the same scheduler the queue uses (ratio, approximate song count, legend and a text version), and a sticky **Create event** bar. See [ADR 0021](/adr/0021-ui-overhaul).
 - Songs found through Spotify now play in full from YouTube when Spotify cannot (no Premium login, a refused account or only a preview). The matching video is found by title, artist and length with the YouTube Data API (`YOUTUBE_API_KEY`) and cached; adverts play out with the page's own sound muted. `GET /api/events/:id/player/youtube/:rid`; ADR 0022.
 - Spotify and YouTube songs now play on the player page, in each service's official player, and the queue advances when they end. Spotify needs a browser signed in to Premium; a 30-second preview is refused rather than counted as played.
@@ -15,6 +16,7 @@ versioning: [SemVer](https://semver.org/).
 - The organiser's create page uses the same sortable list for playlist songs (greyed out beyond the planned time minus one minute); the create request now takes the sorted `songs` instead of playlist links.
 
 ### Changed
+
 - Genre colours are now the same everywhere: red salsa, blue bachata, amber cha-cha, purple Other (bachata was black, Other grey). The dark theme uses the new charcoal and amber palette.
 - Planned time on offer: 0:15, 0:30, 0:45, 1:00, 1:30, 2:00, 2:30, 3:00, 3:30, 4:00, then whole hours to 8:00 (the API still takes any multiple of 15 minutes).
 - The live status on the event page is now a labelled pill in the page, not a dot in the header.
@@ -32,9 +34,11 @@ versioning: [SemVer](https://semver.org/).
 - The live status is one small green dot under the event name in the header, with no "Live" text.
 
 ### Fixed
+
 - Long-press paste works in fields on organiser, player and event pages.
 
 ### Changed (also)
+
 - Joining: the permanent 6-character room code (shown as two triplets, `ABC-123`) now joins on its own, so remote classes can use it, and the landing page opens the event as soon as the sixth character is typed. The QR code stays on the Invite page as a non-verbal backup (it is the same public link). The secret join key is gone.
 - The event name moves to the header on organiser and attendee pages: very small, lower-case, hyphen-separated (`mango-octopus-rye`), Courier New, in the menu's colour and not selectable, so it reads as a label. The big heading is kept for screen readers only.
 - Creating an event (or carrying one over) goes straight to the organiser page. The interstitial that showed the organiser link and recovery secret is gone, and so is the recovery form: control belongs to the browser that created the event, and moves by handover.
@@ -51,6 +55,7 @@ versioning: [SemVer](https://semver.org/).
 ## [0.3.0] - 2026-10-29
 
 ### Added
+
 - Wheel pickers (drums with fade-away rows) for planned time (quarter hours, default 2:00), most songs in a row, songs per person and ratio parts; the ratio defaults to an equal split.
 - Visual timeline: the evening as one bar of fixed width; tap to add a break (10-minute grid), drag handles to move or resize, limits enforced while dragging.
 - Rules per part of the evening: each part between breaks has its own styles and ratio; new parts copy the part they split.
@@ -60,12 +65,14 @@ versioning: [SemVer](https://semver.org/).
 - Playlists per style: one per style, every active genre needs one (a Latin style's playlist covers its non-Latin counterpart and vice versa); songs interleaved and cut to the planned time minus one minute.
 
 ### Changed
+
 - Event names can no longer be typed; the create request rejects a `name`.
 - Planned time moves in quarter hours (was ten-minute steps); breaks are placed by tapping the bar (was evenly spread automatically).
 - Default styles are salsa and bachata with their non-Latin versions; cha-cha is an extra.
 - Rules snapshot is version 3.
 
 ### Removed
+
 - Break-adding buttons, number inputs and the event name field on the create screen.
 
 ## [0.2.0] - 2026-10-29
@@ -73,6 +80,7 @@ versioning: [SemVer](https://semver.org/).
 Changes from the first pilot feedback.
 
 ### Added
+
 - Six dance styles in three genres (salsa, bachata, cha-cha, each with a non-Latin-compatible variant); style changes and run caps count per genre. One master "most songs in a row" number, with an optional ratio (parts 1–5) and a hard floor of 1 part in 10 per genre.
 - Single-genre spacing: a returning requester waits for half of the other people's waiting songs.
 - Planned time like an oven timer (hours up to 8, minutes in steps of 10); breaks (10/20/30 min, at most 3) centred on the planned time, at most half of it, never back to back, shown in the attendee queue; songs never run into a break.
@@ -83,12 +91,14 @@ Changes from the first pilot feedback.
 - Right-click and text selection are disabled on organiser, attendee and player pages (a deterrent).
 
 ### Changed
+
 - Ending an event is two distinct taps with nothing to type.
 - The organiser screen shows only the QR code: no room code, join link or copy button.
 - Carry-over keeps the previous planned time and fits songs within it minus one minute.
 - Rules snapshot is version 2.
 
 ### Removed
+
 - Pasting or uploading a JSON export to start an event, and the JSON download on past events.
 - Kizomba, merengue and "other" styles; free-form planned end time at creation; creation templates.
 
@@ -97,6 +107,7 @@ Changes from the first pilot feedback.
 First release, ready for the pilot.
 
 ### Added
+
 - Monorepo scaffold (pnpm workspaces, strict TypeScript, ESLint, Prettier).
 - `@qroove/config` with brand, style presets and rule defaults.
 - Fastify server with `/api/health`, static hosting for the web app and docs, helmet CSP and compression.
@@ -130,6 +141,7 @@ First release, ready for the pilot.
 - First production deploy on Railway (Firestore-backed) at https://qroove.sataklela.com, with Cloudflare DNS; deploy, DNS and Firebase runbooks.
 
 ### Changed
+
 - `hashRules`/`canonicalJson` moved to `@qroove/contracts/hash` so the contracts index is browser-safe.
 - Licence switched from MIT to AGPL-3.0-only.
 
@@ -143,7 +155,7 @@ First release, ready for the pilot.
 - Docs: backup and retention runbook.
 
 ### Changed
+
 - Firestore transactions on one event are queued in-process, cutting p95 submit latency under 25 concurrent contributors from over 50 s to about 1 s on the emulator.
 - Faded (opacity) list rows replaced by a dashed marker, which fixes a colour-contrast failure.
 - The server now shuts down cleanly on SIGTERM and releases its Firestore listeners.
-

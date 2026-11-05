@@ -60,6 +60,8 @@ export function RadioFallback({
   const [stale, setStale] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  /** The browser refused to start sound by itself: wait for a tap rather than trying again. */
+  const [needsTap, setNeedsTap] = useState(false);
   const [waitingSince, setWaitingSince] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   /** Failures per station: first one retries at once, then the station rests for a minute. */
@@ -139,18 +141,21 @@ export function RadioFallback({
       try {
         a.src = s.streamUrl;
         await a.play();
-      } catch {
+      } catch (err) {
         stop(false);
         starting.current = false;
-        if (byTap) {
-          failures.current.set(s.id, (failures.current.get(s.id) ?? 0) + 1);
-          resting.current.set(s.id, Date.now() + RADIO_DEFAULTS.failureBackoffMs);
-          setMessage(`${s.name} would not play. Trying another station if there is one.`);
-          setTick((n) => n + 1);
+        if (!byTap && err instanceof DOMException && err.name === 'NotAllowedError') {
+          setNeedsTap(true);
+          return;
         }
+        // Any other failure rests the station, so it cannot be retried in a loop.
+        resting.current.set(s.id, Date.now() + RADIO_DEFAULTS.failureBackoffMs);
+        setMessage(`${s.name} would not play. Trying another station if there is one.`);
+        setTick((n) => n + 1);
         return;
       }
       starting.current = false;
+      setNeedsTap(false);
       onUnlocked();
       let st: RadioStatus | null = null;
       try {
@@ -181,11 +186,11 @@ export function RadioFallback({
 
   // Starts by itself once the browser has allowed sound; the first start needs a tap.
   useEffect(() => {
-    if (canRun && !reservedId && phase === 'idle' && unlocked) {
+    if (canRun && !reservedId && phase === 'idle' && unlocked && !needsTap) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- starting the radio is the effect
       void start(false);
     }
-  }, [canRun, reservedId, phase, unlocked, start, tick]);
+  }, [canRun, reservedId, phase, unlocked, needsTap, start, tick]);
 
   // Anything that rules radio out stops it (the server has already closed its side).
   useEffect(() => {
@@ -225,8 +230,10 @@ export function RadioFallback({
           setStatus(st);
           const key = radioTrackKey(st);
           if (key === lastKey.current) return;
+          // The first feed answer after a failed one only gives the track its identity.
+          const wasUnknown = lastKey.current === 'live';
           lastKey.current = key;
-          if (reservedId) {
+          if (reservedId && !wasUnknown) {
             handOver();
             return;
           }
@@ -237,7 +244,7 @@ export function RadioFallback({
               .then(refresh)
               .catch(onError);
           }
-          const better = pick();
+          const better = wasUnknown ? null : pick();
           if (better && better.genre !== station.genre) {
             stop(false);
             setTick((n) => n + 1);
@@ -284,7 +291,8 @@ export function RadioFallback({
   }
 
   const waitedMs = waitingSince === null ? 0 : now - waitingSince;
-  const showStart = canRun && !reservedId && phase === 'idle' && !unlocked;
+  const showStart =
+    canRun && !reservedId && phase === 'idle' && (!unlocked || needsTap || message !== null);
   if (view.state !== 'ACTIVE' && view.state !== 'PAUSED' && !on) return null;
 
   return (

@@ -3,7 +3,7 @@
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 **Current phase:** — (all phases done; Phase 17 radio fallback added 2026-11-05)
-**Next session starts with:** Pilot follow-up: the user-side items under "Blocked / needs user", then the pilot validation questions below. Phases 0–10 done, plus Phases 11–12 (pilot feedback); v0.3.0 tagged.
+**Next session starts with:** Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, then set `enabledByDefault: true` in `packages/config/src/radio.ts` (ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
 
 ## Phases
 
@@ -214,7 +214,7 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 ### Phase 17 — radio fallback (2026-11-05)
 
 - ADR 0023, from `troubleshoot/Qroove_Radio_Fallback_Implementation_Plan.md` (read it for the full brief). Config: `packages/config/src/radio.ts` (station registry with evidence, `RADIO_DEFAULTS`, pure `chooseRadioStation`). Server: optional `EventDoc.radio` / `radioFallback`, `domain/commands/radio.ts` (`setRadioFallback`, `reportRadioStarted`, `reportRadioEnded`), `applyRadioPlay` in `history.ts`, `commit()` clears stale radio, public view gains `radioFallback` and `radio`; routes `POST /player/radio/started|ended`, `POST /admin/radio`; CSP `media-src`/`connect-src` for `radio.co`. Web: `player/RadioFallback.tsx` + `player/radio.ts`, wired into `PlayerConsole` (the main auto-advance is held while a station is on), attendee _Now playing_ shows the radio.
-- Decisions: default **off** (`enabledByDefault: false` in `radio.ts`; the plan's own gate wants device tests first); radio never extends a same-genre run (prevents cap starvation); guest song takes over at the station's next track, after 5 min, or on a button (stations play hour-long DJ mixes); no owner-based rules (ADR 0018); no server poller, no PlaybackDoc for radio (the audit log records starts and ends).
+- Decisions: default **off** (`enabledByDefault: false` in `radio.ts`; the plan's own gate wants device tests first); radio never counts toward a run (the run restarts at zero on a genre change) (prevents cap starvation); guest song takes over at the station's next track, after 5 min, or on a button (stations play hour-long DJ mixes); no owner-based rules (ADR 0018); no server poller, no PlaybackDoc for radio (the audit log records starts and ends).
 - Verified from the sandbox: Bachata Sensual Radio stream and Radio.co status feed (unauthenticated, CORS `*`). SalsaViva/Live365 answers 401 → disabled. No qualifying Salsa station found → Salsa falls through to Bachata.
 - **Not verified / not done:** any real-browser or phone playback (iOS, Android, Bluetooth), the CSP in a real browser, station-to-station switching (only one station), AzuraCast/ICY adapters, warm standby, crossfade, strict-alignment mode, offset calibration, a 2-hour rehearsal, Cha-cha and Other stations.
 - To enable by default after device checks: set `enabledByDefault: true` in `packages/config/src/radio.ts`. Not deployed (`railway up` is the user's step; the Railway MCP was down).

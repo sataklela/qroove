@@ -772,7 +772,7 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
         expect(v1.radio?.stationId).toBe(B.stationId);
         expect(v1.history).toMatchObject({
           lastStyle: 'bachata',
-          runLength: 1,
+          runLength: 0,
           transitionCount: 0,
         });
         const again = await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
@@ -780,7 +780,7 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
         // The next track on the same station is the same genre: the run does not grow.
         await cmd.reportRadioStarted(deps, { ...p.lease, ...B, trackKey: 'next' });
         const v2 = (await snap(deps, ev.eventId)).event;
-        expect(v2.history).toMatchObject({ lastStyle: 'bachata', runLength: 1 });
+        expect(v2.history).toMatchObject({ lastStyle: 'bachata', runLength: 0 });
         expect(v2.history.playedKeys).toEqual([]);
         expect(v2.nowPlaying).toBeNull();
       });
@@ -818,6 +818,22 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
         expect(after.radio).toBeNull();
         expect(after.nowPlaying).not.toBeNull();
         expect(after.history).toMatchObject({ lastStyle: 'salsa', transitionCount: 1 });
+      });
+
+      it('never holds back a guest song of the genre the radio is playing, even with a cap of 1', async () => {
+        const x = await setup({ masterRunCap: 1 });
+        await cmd.setRadioFallback(x.deps, { ...x.admin, enabled: true });
+        const p = await x.player();
+        await cmd.reportRadioStarted(x.deps, { ...p.lease, ...B });
+        const g = await guest(x.deps, x.ev.eventId);
+        await x.submit(g, 1, 'bachata');
+        const e = (await snap(x.deps, x.ev.eventId)).event;
+        expect(e.reservation).not.toBeNull();
+        await p.start();
+        expect((await snap(x.deps, x.ev.eventId)).event.history).toMatchObject({
+          lastStyle: 'bachata',
+          runLength: 1,
+        });
       });
 
       it('does not touch participant quotas and closes on pause, takeover and end', async () => {
