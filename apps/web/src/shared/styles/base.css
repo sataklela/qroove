@@ -370,6 +370,22 @@ ol.list li::before {
 ol.list .title {
   flex: 1 1 60%;
 }
+/* Radio stand-in: a dashed, tinted card so it reads as a placeholder a guest song can replace. */
+ol.list li.radio-row {
+  border: 1px dashed var(--muted);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.4rem 0;
+  background: rgb(128 128 128 / 0.08);
+}
+ol.list li.radio-row::before,
+ol.list li.break-row::before {
+  content: none;
+  counter-increment: none;
+}
+ol.list li.radio-row .title {
+  flex: 1 1 100%;
+}
 
 .badge {
   display: inline-block;
