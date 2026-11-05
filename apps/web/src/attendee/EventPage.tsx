@@ -10,6 +10,7 @@ import { AddMusic } from './AddMusic';
 import { JoinCard } from './JoinCard';
 import { MyNextSong } from './MyNextSong';
 import { MyRequests } from './MyRequests';
+import { QueueTabs } from './QueueTabs';
 import { DeckHeader } from './DeckHeader';
 import { NextUp } from './NextUp';
 import { NowPlaying } from './NowPlaying';
@@ -137,17 +138,24 @@ function Loaded({ slug, eventId }: { slug: string; eventId: string }) {
         <JoinCard eventId={eventId} onJoined={setCreds} />
       )}
       {creds && mine ? (
-        <MyRequests
-          mine={mine}
-          live={view.state === 'ACTIVE'}
-          serverNow={serverNow}
-          onWithdraw={async (r) => {
-            await api.withdraw(eventId, creds, r.id);
-            reload();
-          }}
+        <QueueTabs
+          mineCount={mine.requests.filter((r) => r.state !== 'WITHDRAWN').length}
+          queue={<UpNext view={view} mineIds={mineIds} defaultOpen />}
+          mine={
+            <MyRequests
+              mine={mine}
+              live={view.state === 'ACTIVE'}
+              serverNow={serverNow}
+              onWithdraw={async (r) => {
+                await api.withdraw(eventId, creds, r.id);
+                reload();
+              }}
+            />
+          }
         />
-      ) : null}
-      <UpNext view={view} mineIds={mineIds} />
+      ) : (
+        <UpNext view={view} mineIds={mineIds} />
+      )}
     </div>
   );
 }

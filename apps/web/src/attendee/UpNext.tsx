@@ -7,10 +7,19 @@ import { GENRES, type GenreId } from '@qroove/config';
 const genreName = (id: GenreId) => GENRES.find((g) => g.id === id)?.label.split(' (')[0] ?? id;
 
 /** Titles only: other attendees' names are deliberately not shown (SPEC §6). */
-export function UpNext({ view, mineIds }: { view: EventPublicView; mineIds: ReadonlySet<string> }) {
+export function UpNext({
+  view,
+  mineIds,
+  defaultOpen = false,
+}: {
+  view: EventPublicView;
+  mineIds: ReadonlySet<string>;
+  /** Open on first draw: the queue is the main view for people who have joined. */
+  defaultOpen?: boolean;
+}) {
   const rows = queueRows(view);
   return (
-    <details className="card whole-queue">
+    <details className="card whole-queue" open={defaultOpen || undefined}>
       <summary>
         <h2 id="un-h">Whole queue ({view.queue.length})</h2>
       </summary>

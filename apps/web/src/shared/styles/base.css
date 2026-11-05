@@ -2070,3 +2070,31 @@ body.console .layout main {
   height: 96px;
   aspect-ratio: auto;
 }
+
+/* Queue / My songs tabs: the queue is the default, My songs is one swipe to the right. */
+.tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid rgb(128 128 128 / 0.35);
+  border-radius: 999px;
+}
+.tab {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab.on {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.tab-panel {
+  touch-action: pan-y;
+}

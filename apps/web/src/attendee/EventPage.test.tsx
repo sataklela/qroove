@@ -325,6 +325,7 @@ describe('EventPage', () => {
       songs: [{ title: 'Mi Bachata', artist: 'Band', durationMs: 200000, sourceUrl: null }],
     });
     expect(await screen.findByText(/You’re up next: Mi Bachata/)).toBeInTheDocument();
+    await user.click(await screen.findByRole('tab', { name: /My songs/ }));
     const list = screen.getByRole('heading', { name: 'My songs' }).closest('section')!;
     expect(
       within(list).getByText('1 of 5 accepted songs this event', { exact: false }),
@@ -573,6 +574,7 @@ describe('live deck', () => {
     );
     const user = userEvent.setup();
     renderPage();
+    await user.click(await screen.findByRole('tab', { name: /My songs/ }));
     const mine = (await screen.findByRole('heading', { name: 'My songs' })).closest('section')!;
     await within(mine).findByText('First');
     const titles = within(mine)
