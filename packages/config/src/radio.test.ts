@@ -63,6 +63,15 @@ describe('chooseRadioStation', () => {
       expect(s.streamUrl.startsWith('https://')).toBe(true);
       expect(s.verifiedNote).toMatch(/2026-/);
     }
-    expect(RADIO_STATIONS.find((s) => s.genre === 'salsa')?.enabled).toBe(false);
+    // SalsaViva answers 401, so it stays off; the Zeno salsa station is the working one.
+    expect(RADIO_STATIONS.find((s) => s.id === 'salsaviva-live365')?.enabled).toBe(false);
+    expect(
+      chooseRadioStation({
+        allowedGenres: ['salsa', 'bachata'],
+        lastGenre: null,
+        runLength: 0,
+        runCap: 1,
+      })?.id,
+    ).toBe('calle-latina-salsa');
   });
 });

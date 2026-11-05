@@ -11,8 +11,9 @@ export interface RadioStation {
   genre: GenreId;
   /** Direct HTTPS listener URL, played by an <audio> element. */
   streamUrl: string;
-  provider: 'radio.co';
-  /** Radio.co station id, for the public status endpoint. */
+  /** Who publishes the station's now-playing feed (see `fetchRadioStatus` in the web player). */
+  provider: 'radio.co' | 'zeno' | 'live365';
+  /** Radio.co station id, or Zeno mount id, for the public now-playing feed. */
   providerStationId: string;
   siteUrl: string;
   enabled: boolean;
@@ -21,6 +22,22 @@ export interface RadioStation {
 }
 
 export const RADIO_STATIONS: readonly RadioStation[] = [
+  {
+    id: 'calle-latina-salsa',
+    name: 'Radio Calle Latina Salsa',
+    genre: 'salsa',
+    streamUrl: 'https://stream.zeno.fm/erhrz6fdbnruv',
+    provider: 'zeno',
+    providerStationId: 'erhrz6fdbnruv',
+    siteUrl: 'https://salsa.fmlima.com/',
+    enabled: true,
+    verifiedNote:
+      '2026-11-05: the stream URL answers 302 to a signed surfernetwork.com host that serves ' +
+      'audio/mpeg, 128 kbit/s ("Salsa Radio - Calle Latina"), no login. ' +
+      'https://api.zeno.fm/mounts/metadata/subscribe/erhrz6fdbnruv answers unauthenticated with ' +
+      'CORS * and an SSE event {"streamTitle":"Fania All Stars - Mi Gente"}. Salsa dura, clasica ' +
+      'and romantica, 24 h (Lima). Not yet tried on iOS or Android.',
+  },
   {
     id: 'bachata-sensual-radio',
     name: 'Bachata Sensual Radio',
@@ -40,7 +57,7 @@ export const RADIO_STATIONS: readonly RadioStation[] = [
     name: 'SalsaViva',
     genre: 'salsa',
     streamUrl: 'https://streaming.live365.com/a37497',
-    provider: 'radio.co',
+    provider: 'live365',
     providerStationId: '',
     siteUrl: 'https://salsaviva.fm/',
     enabled: false,

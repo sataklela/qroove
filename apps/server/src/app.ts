@@ -71,8 +71,21 @@ export async function buildApp(
           'https://i.ytimg.com',
         ],
         // Radio fallback: the browser plays the station's public listener URL directly (ADR 0023).
-        mediaSrc: ["'self'", 'blob:', 'data:', 'https://s3.radio.co', 'https://*.radio.co'],
-        connectSrc: ["'self'", 'https://api.spotify.com', 'https://public.radio.co'],
+        mediaSrc: [
+          "'self'",
+          'blob:',
+          'data:',
+          'https://s3.radio.co',
+          'https://*.radio.co',
+          'https://stream.zeno.fm',
+          'https://*.surfernetwork.com',
+        ],
+        connectSrc: [
+          "'self'",
+          'https://api.spotify.com',
+          'https://public.radio.co',
+          'https://api.zeno.fm',
+        ],
         styleSrc: ["'self'", "'unsafe-inline'"],
         // Official players only (see ADR 0017); no audio ever passes through this server.
         scriptSrc: ["'self'", 'https://www.youtube.com', 'https://sdk.scdn.co'],

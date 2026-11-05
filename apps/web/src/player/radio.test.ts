@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRadioStatus, radioTrackKey } from './radio';
+import { parseRadioStatus, parseZenoEvent, radioTrackKey } from './radio';
 
 describe('parseRadioStatus', () => {
   it('reads the documented Radio.co shape', () => {
@@ -32,5 +32,23 @@ describe('parseRadioStatus', () => {
       current_track: { title: 'a'.repeat(999) },
     }).title;
     expect(t).toHaveLength(200);
+  });
+});
+
+describe('parseZenoEvent', () => {
+  it('reads streamTitle and uses it as the identity of the play', () => {
+    const s = parseZenoEvent('{"mount":"x","streamTitle":" Fania All Stars - Mi Gente "}');
+    expect(s).toEqual({
+      online: true,
+      title: 'Fania All Stars - Mi Gente',
+      startTime: 't:Fania All Stars - Mi Gente',
+    });
+    expect(radioTrackKey(s)).toBe('t:Fania All Stars - Mi Gente');
+  });
+  it('treats empty, malformed or non-string titles as no title', () => {
+    for (const bad of ['', 'nope', '{}', '{"streamTitle":""}', '{"streamTitle":5}']) {
+      const s = parseZenoEvent(bad);
+      expect(s).toEqual({ online: false, title: null, startTime: null });
+    }
   });
 });
