@@ -9,7 +9,7 @@ looking at one bar. There is no name to type: the event gets a generated name of
 _Mango Octopus Rye_ ([ADR 0013](/adr/0013-generated-event-names)).
 
 - **Three drums in a row:** _Total duration_ (0:15, 0:30, 0:45, 1:00, 1:30, 2:00, 2:30, 3:00, 3:30, 4:00, then whole
-  hours to 8:00; starts at 2:00), _Songs in a row_ and _Songs per person_. The clock starts when you press **Start event**.
+  hours to 8:00; starts at 2:00), _Songs in a row_ and _Songs per person_. The clock starts when you open the organiser page: the event starts by itself (the **Start event** button is only there if that failed). Pause is there if you want it.
 - **Synced parameters:** while the switch at the top is on, choosing a new total duration also sets songs per person to
   5 for every 15 minutes (never below 5, never above 50 or the most the event may hold). Switch it off to set the two
   independently. Switching it back on changes nothing by itself; the next duration change recalculates.
@@ -49,7 +49,7 @@ purpose, use **Hand over** (below) before you leave.
 
 ![The organiser page](/screens/admin-dashboard.png){width=280}
 
-- **Start event** locks the rules. After that nothing on the page changes them.
+- **Starting the event** (automatic when you open the organiser page) locks the rules. After that nothing on the page changes them.
 - **Playback:** what is playing, what is next, the style run, and why the queue is waiting if it is. **Pause**
   keeps the next song reserved; **Resume** carries on. **Skip** (with confirmation) ends the current song; it still
   counts as played for fairness and for its owner's quota.

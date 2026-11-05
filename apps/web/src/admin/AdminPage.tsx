@@ -58,6 +58,19 @@ export default function AdminPage() {
   const [sub, setSub] = useState<Sub | null>(null);
   const pager = useRef<HTMLDivElement>(null);
   useLockedPage();
+  // The event starts by itself when the organiser's page opens; Pause is there if they want it.
+  const autoStarted = useRef(false);
+  const draft = state?.view.state === 'DRAFT';
+  const token = csrf ?? state?.csrf ?? null;
+  useEffect(() => {
+    if (!draft || !token || autoStarted.current) return;
+    autoStarted.current = true;
+    // If this fails the Start event button is still there.
+    void commands(eventId, token)
+      .start()
+      .then(refresh)
+      .catch(() => undefined);
+  }, [draft, token, eventId, refresh]);
   useMenuRules(state?.rules, state?.view.name, connection);
   useEffect(() => {
     document.body.classList.add('console');

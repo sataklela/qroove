@@ -87,6 +87,8 @@ export const RADIO_DEFAULTS = {
   maxQueueWaitMs: 4 * 60_000,
   /** Pausing at the end of the current song fades a playing station out over this long. */
   pauseFadeMs: 4000,
+  /** A station starting, or resuming after a pause, fades in over this long. */
+  resumeFadeMs: 4000,
   /** A failing station is not tried again for this long. */
   failureBackoffMs: 60_000,
 } as const;

@@ -592,6 +592,7 @@ export function PlayerConsole({
         onError={() => void onMediaError()}
       />
       <RadioFallback
+        settingsSlot={extrasSlot}
         eventId={eventId}
         view={s.view}
         csrf={csrf}

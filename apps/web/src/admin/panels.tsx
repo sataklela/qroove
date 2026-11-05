@@ -35,7 +35,7 @@ export function PlaybackPanel({ s, cmd, refresh }: PanelProps) {
     v.breaks.find((b) => b.actualStart !== null && b.actualEnd === null) ??
     v.breaks.find((b) => b.actualStart === null && b.actualEnd === null);
   return (
-    <section className="card stack compact" aria-label="Playback">
+    <section className="card stack compact playback-bar" aria-label="Playback">
       {!v.nowPlaying && v.waitingReason ? (
         <p className="muted small">Waiting: {v.waitingReason}</p>
       ) : null}

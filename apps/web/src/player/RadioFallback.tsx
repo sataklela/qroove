@@ -1,5 +1,6 @@
 /* The lease lives in a ref owned by the player console; callbacks read it when they run. */
 /* eslint-disable react-hooks/preserve-manual-memoization */
+import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
   GENRES,
@@ -17,10 +18,6 @@ import { ApiError } from '../shared/api';
 import { fetchRadioStatus, radioTrackKey, type RadioStatus } from './radio';
 
 type Phase = 'idle' | 'connecting' | 'playing';
-
-/** 0.1 s of silence (8 kHz 8-bit mono WAV). */
-const SILENCE =
-  'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 
 const genreName = (g: string) => GENRES.find((x) => x.id === g)?.label ?? g;
 
@@ -43,7 +40,23 @@ function canFade(a: HTMLAudioElement): boolean {
   }
 }
 
+/** Moves the volume to `to` in even steps over `ms`; returns a function that stops the ramp. */
+function rampVolume(a: HTMLAudioElement, to: number, ms: number, done?: () => void): () => void {
+  const from = a.volume;
+  const began = Date.now();
+  const id = setInterval(() => {
+    const t = Math.min(1, (Date.now() - began) / Math.max(1, ms));
+    a.volume = Math.min(1, Math.max(0, from + (to - from) * t));
+    if (t >= 1) {
+      clearInterval(id);
+      done?.();
+    }
+  }, 100);
+  return () => clearInterval(id);
+}
+
 export function RadioFallback({
+  settingsSlot = null,
   eventId,
   view,
   csrf,
@@ -57,6 +70,8 @@ export function RadioFallback({
   onError,
   refresh,
 }: {
+  /** Where the on/off setting is drawn (the More page); drawn in place when absent. */
+  settingsSlot?: HTMLElement | null;
   eventId: string;
   view: EventPublicView;
   csrf: string | null;
@@ -106,22 +121,6 @@ export function RadioFallback({
     const id = setTimeout(() => setGraceOver(true), Math.max(0, holdUntil - view.serverNow));
     return () => clearTimeout(id);
   }, [holdUntil, view.serverNow]);
-
-  /** Plays a silent clip in a tap, so the browser lets this element start by itself later. */
-  async function armSound() {
-    const a = audio.current;
-    if (!a) return;
-    try {
-      a.src = SILENCE;
-      await a.play();
-      a.pause();
-      a.removeAttribute('src');
-      a.load();
-      onUnlocked();
-    } catch {
-      setMessage('This browser would not allow sound. Tap again.');
-    }
-  }
 
   const choice = useMemo(() => {
     const done = view.breaks.filter((b) => b.actualEnd !== null).length;
@@ -199,7 +198,11 @@ export function RadioFallback({
       setPhase('connecting');
       try {
         a.src = s.streamUrl;
+        // Comes in from silence over a few seconds (not on an iPhone, which ignores volume).
+        const fadeIn = canFade(a);
+        if (fadeIn) a.volume = 0;
         await a.play();
+        if (fadeIn) rampVolume(a, 1, RADIO_DEFAULTS.resumeFadeMs);
       } catch (err) {
         stop(false);
         starting.current = false;
@@ -248,12 +251,12 @@ export function RadioFallback({
     [eventId, lease, onError, onUnlocked, pick, refresh, stop, choice],
   );
 
-  // Starts by itself once the browser has allowed sound; the first start needs a tap.
+  // Starts by itself; if the browser refuses sound without a tap, a Start radio button appears.
   useEffect(() => {
-    if (canRun && !reservedId && phase === 'idle' && unlocked && !needsTap) {
+    if (canRun && !reservedId && phase === 'idle' && !needsTap) {
       void start(false);
     }
-  }, [canRun, reservedId, phase, unlocked, needsTap, start, tick]);
+  }, [canRun, reservedId, phase, needsTap, start, tick]);
 
   // Anything that rules radio out stops it (the server has already closed its side). A pause
   // ("Pause at end of current song") tapers the sound away over a few seconds instead of cutting it.
@@ -262,21 +265,14 @@ export function RadioFallback({
     const a = audio.current;
     if (view.state === 'PAUSED' && phase === 'playing' && a && canFade(a)) {
       const from = a.volume;
-      const began = Date.now();
-      const id = setInterval(() => {
-        const left = 1 - (Date.now() - began) / RADIO_DEFAULTS.pauseFadeMs;
-        if (left > 0) {
-          a.volume = Math.max(0, from * left);
-          return;
-        }
-        clearInterval(id);
+      let cancel = rampVolume(a, 0, RADIO_DEFAULTS.pauseFadeMs * from, () => {
         stop(leaseHeld);
         a.volume = from;
-      }, 100);
-      // Resumed (or anything else changed) before the end: back to full sound.
+      });
+      // Resumed (or anything else changed) before the end: back up to full sound, not with a jump.
       return () => {
-        clearInterval(id);
-        a.volume = from;
+        cancel();
+        cancel = rampVolume(a, from, RADIO_DEFAULTS.resumeFadeMs * (1 - a.volume));
       };
     }
     stop(leaseHeld);
@@ -384,37 +380,42 @@ export function RadioFallback({
   }
 
   const waitedMs = waitingSince === null ? 0 : now - waitingSince;
-  const showArm = (inGrace || !active) && on && leaseHeld && view.state === 'ACTIVE' && !unlocked;
   const showStart =
     canRun && !reservedId && phase === 'idle' && (!unlocked || needsTap || message !== null);
   if (view.state !== 'ACTIVE' && view.state !== 'PAUSED' && !on) return null;
 
+  // The on/off setting lives on the More page; the rest stays with the player.
+  const setting = (
+    <label className="check-row">
+      <input
+        type="checkbox"
+        checked={on}
+        disabled={!csrf || view.state === 'DRAFT'}
+        onChange={(e) => void toggle(e.target.checked)}
+      />
+      <span>
+        Radio fallback
+        <span className="muted small">
+          {' '}
+          Plays a live station when no guest song is due. A guest song starts when the
+          station&apos;s current track ends.
+        </span>
+      </span>
+    </label>
+  );
+
   return (
     <div className="stack compact radio-fallback" aria-label="Radio fallback">
       <audio ref={audio} hidden onError={failed} onEnded={failed} onWaiting={undefined} />
-      <label className="check-row">
-        <input
-          type="checkbox"
-          checked={on}
-          disabled={!csrf || view.state === 'DRAFT'}
-          onChange={(e) => void toggle(e.target.checked)}
-        />
-        <span>
-          Radio fallback
-          <span className="muted small">
-            {' '}
-            Plays a live station when no guest song is due. A guest song starts when the
-            station&apos;s current track ends.
-          </span>
-        </span>
-      </label>
+      {settingsSlot ? createPortal(setting, settingsSlot) : setting}
       {phase === 'playing' && station ? (
         <div role="status">
-          <p>
+          <p className="radio-now">
             <strong>Radio · {genreName(station.genre)}</strong> · {station.name}
-          </p>
-          <p className="muted small">
-            {status?.title ?? 'Live radio · track information unavailable'}
+            <span className="muted small">
+              {' '}
+              · {status?.title ?? 'track information unavailable'}
+            </span>
           </p>
           {stale ? (
             <p className="warning small">
@@ -436,17 +437,6 @@ export function RadioFallback({
         </div>
       ) : null}
       {phase === 'connecting' ? <p className="muted small">Connecting to the radio…</p> : null}
-      {showArm ? (
-        <div className="stack compact">
-          <p className="muted small">
-            When no guest song is ready, the radio starts by itself. Tap once now so this device is
-            allowed to play it.
-          </p>
-          <button className="btn" onClick={() => void armSound()}>
-            Allow sound for the radio
-          </button>
-        </div>
-      ) : null}
       {showStart ? (
         <button className="btn primary" onClick={() => void start(true)}>
           Start radio

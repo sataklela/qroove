@@ -313,8 +313,6 @@ describe('PlayerConsole', () => {
 });
 
 describe('PlayerConsole radio fallback', () => {
-  const ready0 = () =>
-    waitFor(() => expect(calls.some((c) => c.url.endsWith('/player/claim'))).toBe(true));
   const radioState = (reserved: boolean) => {
     const st = mkState({ reserved });
     Object.assign(st.view, {
@@ -325,11 +323,9 @@ describe('PlayerConsole radio fallback', () => {
   };
   const radioCalls = () => calls.filter((c) => c.url.includes('/player/radio/'));
 
-  it('starts a station on a tap when the queue is empty and reports the track once', async () => {
+  it('starts a station by itself when the queue is empty and reports the track once', async () => {
     adminState = radioState(false);
-    const user = userEvent.setup();
     open();
-    await user.click(await screen.findByRole('button', { name: 'Start radio' }));
     await waitFor(() =>
       expect(radioCalls().some((c) => c.url.endsWith('/radio/started'))).toBe(true),
     );
@@ -340,7 +336,7 @@ describe('PlayerConsole radio fallback', () => {
       title: 'Mix <b>1</b>',
     });
     // Rendered as text, never as markup.
-    expect(await screen.findByText('Mix <b>1</b>')).toBeInTheDocument();
+    expect(await screen.findByText(/Mix <b>1<\/b>/)).toBeInTheDocument();
     expect(screen.getByText(/Radio · Bachata/)).toBeInTheDocument();
     expect(radioCalls().filter((c) => c.url.endsWith('/radio/started'))).toHaveLength(1);
   });
@@ -385,19 +381,6 @@ describe('PlayerConsole radio fallback', () => {
     expect(await screen.findByRole('button', { name: 'Start radio' })).toBeInTheDocument();
   });
 
-  it('waits out the start grace, offering a tap to allow sound first', async () => {
-    const st = radioState(false);
-    Object.assign(st.view, { serverNow: Date.now(), radioHoldUntil: Date.now() + 60 * 60_000 });
-    adminState = st;
-    open();
-    await ready0();
-    expect(
-      await screen.findByRole('button', { name: 'Allow sound for the radio' }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Start radio' })).toBeNull();
-    expect(radioCalls()).toHaveLength(0);
-  });
-
   it('switched off and on again, carries on with the same station and never rests it', async () => {
     adminState = radioState(false);
     const user = userEvent.setup();
@@ -429,22 +412,27 @@ describe('PlayerConsole radio fallback', () => {
     expect(new Set(ids).size).toBe(1);
   });
 
-  it('an interrupted play() (off then on quickly) does not rest the station', async () => {
+  it('an interrupted play() (off then on quickly) is retried and does not rest the station', async () => {
     adminState = radioState(false);
-    const user = userEvent.setup();
-    open();
     HTMLMediaElement.prototype.play = vi
       .fn()
       .mockRejectedValueOnce(new DOMException('interrupted', 'AbortError'))
       .mockResolvedValue(undefined);
-    await user.click(await screen.findByRole('button', { name: 'Start radio' }));
-    // The interrupted attempt says nothing against the station: the tap simply works again.
-    expect(await screen.findByRole('button', { name: 'Start radio' })).toBeInTheDocument();
-    expect(screen.queryByText(/would not play|No working radio station/)).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Start radio' }));
+    open();
     await waitFor(() =>
       expect(radioCalls().some((c) => c.url.endsWith('/radio/started'))).toBe(true),
     );
+    expect(screen.queryByText(/would not play|No working radio station/)).toBeNull();
+  });
+
+  it('offers one Start radio button when the browser refuses sound without a tap', async () => {
+    adminState = radioState(false);
+    HTMLMediaElement.prototype.play = vi.fn(async () => {
+      throw new DOMException('blocked', 'NotAllowedError');
+    });
+    open();
+    expect(await screen.findByRole('button', { name: 'Start radio' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Allow sound for the radio' })).toBeNull();
   });
 
   it('does not start radio while a guest song is waiting', async () => {

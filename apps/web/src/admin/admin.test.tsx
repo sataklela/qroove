@@ -602,6 +602,22 @@ describe('AdminPage', () => {
       extra?.(c) ?? (c.method === 'GET' ? { body: state() } : { body: { ok: true, version: 6 } });
   };
 
+  it('starts a draft event by itself when the organiser page opens, once', async () => {
+    ok((c) =>
+      c.method === 'GET' ? { body: state({}, { state: 'DRAFT' }) } : { body: { ok: true } },
+    );
+    page();
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/start'))).toBe(true));
+    expect(calls.filter((c) => c.url.endsWith('/start'))).toHaveLength(1);
+  });
+
+  it('does not start an event that is already running', async () => {
+    ok();
+    page();
+    await screen.findByRole('region', { name: 'Playback' });
+    expect(calls.some((c) => c.url.endsWith('/start'))).toBe(false);
+  });
+
   it('has three pages: the invite page shows the room code and a backup QR', async () => {
     ok();
     const user = userEvent.setup();

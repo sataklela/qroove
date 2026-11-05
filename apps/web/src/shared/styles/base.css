@@ -1327,7 +1327,7 @@ body.console .layout main {
 }
 .player-console {
   flex: none;
-  max-height: 42dvh;
+  max-height: 32dvh;
   overflow-y: auto;
 }
 .list li.done {
@@ -2097,4 +2097,30 @@ body.console .layout main {
 }
 .tab-panel {
   touch-action: pan-y;
+}
+
+/* Pause / skip row: one slim line, so the queue below gets well over half the screen. */
+.card.playback-bar {
+  padding: 0.35rem 0.6rem;
+}
+.card.playback-bar.stack > * + * {
+  margin-top: 0.25rem;
+}
+.card.playback-bar .row {
+  flex-wrap: nowrap;
+  gap: 0.4rem;
+}
+.card.playback-bar .btn {
+  min-height: 36px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.9rem;
+  flex: 1 1 auto;
+}
+.card.playback-bar .next-line,
+.card.playback-bar p {
+  margin: 0;
+}
+.radio-now {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
