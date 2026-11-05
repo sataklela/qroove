@@ -70,8 +70,9 @@ export async function buildApp(
           'https://*.mzstatic.com',
           'https://i.ytimg.com',
         ],
-        mediaSrc: ["'self'", 'blob:'],
-        connectSrc: ["'self'", 'https://api.spotify.com'],
+        // Radio fallback: the browser plays the station's public listener URL directly (ADR 0023).
+        mediaSrc: ["'self'", 'blob:', 'https://s3.radio.co', 'https://*.radio.co'],
+        connectSrc: ["'self'", 'https://api.spotify.com', 'https://public.radio.co'],
         styleSrc: ["'self'", "'unsafe-inline'"],
         // Official players only (see ADR 0017); no audio ever passes through this server.
         scriptSrc: ["'self'", 'https://www.youtube.com', 'https://sdk.scdn.co'],

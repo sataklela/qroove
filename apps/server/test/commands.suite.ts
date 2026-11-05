@@ -742,5 +742,107 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
       }
       expect(text).toContain('request.submit');
     });
+
+    describe('radio fallback', () => {
+      const B = {
+        stationId: 'bachata-sensual-radio',
+        trackKey: '2026-11-05T14:02:27+00:00',
+        title: 'Mix',
+      };
+      async function radioSetup() {
+        const x = await setup();
+        await cmd.setRadioFallback(x.deps, { ...x.admin, enabled: true });
+        const p = await x.player();
+        return { ...x, p };
+      }
+
+      it('is off by default and refuses to start radio until the organiser switches it on', async () => {
+        const { deps, player } = await setup();
+        const p = await player();
+        await expectCode(
+          cmd.reportRadioStarted(deps, { ...p.lease, ...B, title: null }),
+          'VALIDATION',
+        );
+      });
+
+      it('records a radio track once, as a system play that changes the genre history', async () => {
+        const { deps, ev, p } = await radioSetup();
+        await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
+        const v1 = (await snap(deps, ev.eventId)).event;
+        expect(v1.radio?.stationId).toBe(B.stationId);
+        expect(v1.history).toMatchObject({
+          lastStyle: 'bachata',
+          runLength: 1,
+          transitionCount: 0,
+        });
+        const again = await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
+        expect(again.version).toBe(v1.version);
+        // The next track on the same station is the same genre: the run does not grow.
+        await cmd.reportRadioStarted(deps, { ...p.lease, ...B, trackKey: 'next' });
+        const v2 = (await snap(deps, ev.eventId)).event;
+        expect(v2.history).toMatchObject({ lastStyle: 'bachata', runLength: 1 });
+        expect(v2.history.playedKeys).toEqual([]);
+        expect(v2.nowPlaying).toBeNull();
+      });
+
+      it('refuses stale leases, unknown or disabled stations and genres the event does not allow', async () => {
+        const { deps, p } = await radioSetup();
+        await expectCode(
+          cmd.reportRadioStarted(deps, { ...p.lease, epoch: 99, ...B }),
+          'STALE_LEASE',
+        );
+        await expectCode(
+          cmd.reportRadioStarted(deps, { ...p.lease, ...B, stationId: 'nope' }),
+          'VALIDATION',
+        );
+        await expectCode(
+          cmd.reportRadioStarted(deps, { ...p.lease, ...B, stationId: 'salsaviva-live365' }),
+          'VALIDATION',
+        );
+      });
+
+      it('lets a queued song reserve at once, and a queue start closes the radio', async () => {
+        const { deps, ev, submit, p } = await radioSetup();
+        await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
+        const g = await guest(deps, ev.eventId);
+        await submit(g, 1, 'salsa');
+        const mid = (await snap(deps, ev.eventId)).event;
+        expect(mid.reservation).not.toBeNull();
+        expect(mid.radio).not.toBeNull(); // still audible until the player hands over
+        await expectCode(
+          cmd.reportRadioStarted(deps, { ...p.lease, ...B, trackKey: 'x' }),
+          'STALE_VERSION',
+        );
+        await p.start();
+        const after = (await snap(deps, ev.eventId)).event;
+        expect(after.radio).toBeNull();
+        expect(after.nowPlaying).not.toBeNull();
+        expect(after.history).toMatchObject({ lastStyle: 'salsa', transitionCount: 1 });
+      });
+
+      it('does not touch participant quotas and closes on pause, takeover and end', async () => {
+        const { deps, ev, admin, p } = await radioSetup();
+        await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
+        await cmd.pause(deps, admin);
+        expect((await snap(deps, ev.eventId)).event.radio).toBeNull();
+        await cmd.resume(deps, admin);
+        await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
+        await cmd.claimLease(deps, { ...admin, takeover: true });
+        expect((await snap(deps, ev.eventId)).event.radio).toBeNull();
+        await expectCode(cmd.reportRadioStarted(deps, { ...p.lease, ...B }), 'STALE_LEASE');
+      });
+
+      it('ending the radio is idempotent and switching the fallback off stops it', async () => {
+        const { deps, ev, admin, p } = await radioSetup();
+        await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
+        await cmd.reportRadioEnded(deps, p.lease);
+        const v = (await snap(deps, ev.eventId)).event;
+        expect(v.radio).toBeNull();
+        expect((await cmd.reportRadioEnded(deps, p.lease)).version).toBe(v.version);
+        await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
+        await cmd.setRadioFallback(deps, { ...admin, enabled: false });
+        expect((await snap(deps, ev.eventId)).event.radio).toBeNull();
+      });
+    });
   });
 }

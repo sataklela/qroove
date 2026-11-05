@@ -61,6 +61,21 @@ export interface EventDoc {
   /** The single outstanding handover offer while TRANSFERRING. */
   transferOfferId: string | null;
   importSeed: number | null;
+  /** Operational switch for radio fallback (ADR 0023); absent on older events = the default. */
+  radioFallback?: boolean | null;
+  /** The radio track the player is on, while the queue has nothing to play. Absent = none. */
+  radio?: RadioDoc | null;
+}
+
+export interface RadioDoc {
+  stationId: string;
+  genre: string;
+  /** Identity of the current track on the station (its start time), or `live` when unknown. */
+  trackKey: string;
+  title: string | null;
+  startedAt: number;
+  /** The lease epoch that started it; a different epoch means a different player, so it is stale. */
+  leaseEpoch: number;
 }
 
 export interface ParticipantDoc {

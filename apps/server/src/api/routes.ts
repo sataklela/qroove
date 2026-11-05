@@ -10,7 +10,9 @@ import {
   PlayerClaimBody,
   PlayerFinishedBody,
   PlayerHeartbeatBody,
+  PlayerRadioStartedBody,
   PlayerReleaseBody,
+  RadioSettingBody,
   PlayerStartedBody,
   RecoverBody,
   RemoveBody,
@@ -337,6 +339,12 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
   simple('/api/events/:id/admin/archive', (a) => cmd.archive(deps, a));
   simple('/api/events/:id/admin/handover', (a) => cmd.createHandoverOffer(deps, a));
 
+  app.post('/api/events/:id/admin/radio', async (req) => {
+    const { id } = parse(idParams, req.params);
+    const { enabled } = parse(RadioSettingBody, req.body);
+    return cmd.setRadioFallback(deps, { ...admin(req, id), enabled, idempotencyKey: idemKey(req) });
+  });
+
   app.patch('/api/events/:id/admin/draft', async (req) => {
     const { id } = parse(idParams, req.params);
     const body = parse(UpdateDraftBody, req.body);
@@ -546,6 +554,25 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
   app.post('/api/events/:id/player/finished', async (req) => {
     const { id } = parse(idParams, req.params);
     return cmd.reportFinished(deps, { eventId: id, ...parse(PlayerFinishedBody, req.body) });
+  });
+
+  // Radio fallback (ADR 0023): the player says which station track is audible, and when it stops.
+  app.post('/api/events/:id/player/radio/started', async (req) => {
+    const { id } = parse(idParams, req.params);
+    const b = parse(PlayerRadioStartedBody, req.body);
+    return cmd.reportRadioStarted(deps, {
+      eventId: id,
+      leaseToken: b.leaseToken,
+      epoch: b.epoch,
+      stationId: b.stationId,
+      trackKey: b.trackKey,
+      title: b.title ?? null,
+    });
+  });
+
+  app.post('/api/events/:id/player/radio/ended', async (req) => {
+    const { id } = parse(idParams, req.params);
+    return cmd.reportRadioEnded(deps, { eventId: id, ...parse(PlayerReleaseBody, req.body) });
   });
 
   app.post('/api/events/:id/player/release', async (req) => {

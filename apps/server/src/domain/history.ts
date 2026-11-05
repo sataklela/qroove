@@ -78,3 +78,19 @@ export const toCandidate = (r: RequestDoc): Candidate => ({
   durationMs: r.durationMs,
   playable: r.playable,
 });
+
+/**
+ * A radio track played on its own (ADR 0023). It is real music, so it can change the last genre,
+ * but it never extends a run: another track of the genre already playing leaves the run as it is.
+ * That keeps radio from using up a genre's cap or blocking guests' songs. Radio is system-owned, so
+ * no key or participant is recorded.
+ */
+export function applyRadioPlay(h: HistoryDoc, genre: string): HistoryDoc {
+  if (h.lastStyle === genre) return h;
+  return {
+    ...h,
+    lastStyle: genre,
+    runLength: 1,
+    transitionCount: h.transitionCount + (h.lastStyle === null ? 0 : 1),
+  };
+}

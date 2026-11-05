@@ -71,6 +71,15 @@ export type TrackView = z.infer<typeof TrackView>;
 
 export const NowPlaying = z.object({ track: TrackView, startedAt: z.number().int() });
 
+/** Radio fallback in the public view (ADR 0023): which station is on, never a URL. */
+export const RadioView = z.object({
+  stationName: z.string(),
+  genre: z.string(),
+  title: z.string().nullable(),
+  startedAt: z.number().int(),
+});
+export type RadioView = z.infer<typeof RadioView>;
+
 /** `GET /api/events/:slug/public` — sanitised, no tokens or participant ids. */
 export const EventPublicView = z.object({
   id: z.string(),
@@ -83,6 +92,9 @@ export const EventPublicView = z.object({
   version: z.number().int(),
   rules: RulesSnapshot.nullable(),
   nowPlaying: NowPlaying.nullable(),
+  /** The organiser's radio fallback switch, and the radio track on air, if any. */
+  radioFallback: z.boolean(),
+  radio: RadioView.nullable(),
   waitingReason: z.string().nullable(),
   /** Current run of one style against its cap, so attendees can see why a style may be held. */
   runIndicator: z

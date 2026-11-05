@@ -27,6 +27,7 @@ let calls: Call[];
 let adminState: Record<string, unknown>;
 let failPath: string | null;
 let ytIds: string[];
+let onRadioStarted: (() => void) | null;
 
 const rules = { rulesVersion: 1, enabledStyles: ['salsa'], runCaps: {}, submissionLimit: 5 };
 const mkState = (over: { reserved?: boolean; playing?: boolean; epoch?: number | null } = {}) => ({
@@ -56,6 +57,9 @@ const mkState = (over: { reserved?: boolean; playing?: boolean; epoch?: number |
       ? { startedAt: 1, track: { requestId: 'r1', title: 'Vivir Mi Vida', artist: 'Marc Anthony' } }
       : null,
     waitingReason: null,
+    breaks: [],
+    radioFallback: false,
+    radio: null,
     queue: [
       { requestId: 'r1', title: 'Vivir Mi Vida', artist: 'Marc Anthony', durationMs: 240000 },
     ],
@@ -68,6 +72,7 @@ beforeEach(() => {
   embedSource = null;
   failPath = null;
   ytIds = [];
+  onRadioStarted = null;
   sessionStorage.clear();
   adminState = mkState({ reserved: true });
   vi.stubGlobal('EventSource', undefined);
@@ -84,6 +89,15 @@ beforeEach(() => {
         { status: 409 },
       );
     }
+    if (url.includes('public.radio.co')) {
+      return new Response(
+        JSON.stringify({
+          status: 'online',
+          current_track: { title: 'Mix <b>1</b>', start_time: '2026-11-05T14:00:00+00:00' },
+        }),
+      );
+    }
+    if (url.endsWith('/player/radio/started')) onRadioStarted?.();
     if (url.endsWith('/admin/state')) return new Response(JSON.stringify(adminState));
     if (url.includes('/player/youtube/')) return new Response(JSON.stringify({ videoIds: ytIds }));
     if (url.endsWith('/player/claim')) {
@@ -294,5 +308,69 @@ describe('PlayerConsole', () => {
     expect(await screen.findByText(/Another device took over playback/)).toBeInTheDocument();
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
     expect(sessionStorage.getItem('qroove:lease:ev1')).toBeNull();
+  });
+});
+
+describe('PlayerConsole radio fallback', () => {
+  const radioState = (reserved: boolean) => {
+    const st = mkState({ reserved });
+    Object.assign(st.view, {
+      radioFallback: true,
+      rules: { segments: [{ enabledStyles: ['bachata'], runCaps: {} }] },
+    });
+    return st;
+  };
+  const radioCalls = () => calls.filter((c) => c.url.includes('/player/radio/'));
+
+  it('starts a station on a tap when the queue is empty and reports the track once', async () => {
+    adminState = radioState(false);
+    const user = userEvent.setup();
+    open();
+    await user.click(await screen.findByRole('button', { name: 'Start radio' }));
+    await waitFor(() =>
+      expect(radioCalls().some((c) => c.url.endsWith('/radio/started'))).toBe(true),
+    );
+    const started = radioCalls().find((c) => c.url.endsWith('/radio/started'))!;
+    expect(started.body).toMatchObject({
+      stationId: 'bachata-sensual-radio',
+      trackKey: '2026-11-05T14:00:00+00:00',
+      title: 'Mix <b>1</b>',
+    });
+    // Rendered as text, never as markup.
+    expect(await screen.findByText('Mix <b>1</b>')).toBeInTheDocument();
+    expect(screen.getByText(/Radio · Bachata/)).toBeInTheDocument();
+    expect(radioCalls().filter((c) => c.url.endsWith('/radio/started'))).toHaveLength(1);
+  });
+
+  it('gives a waiting guest song priority and hands over on request', async () => {
+    adminState = radioState(false);
+    const user = userEvent.setup();
+    open();
+    onRadioStarted = () => {
+      adminState = radioState(true); // a guest song becomes due while the radio plays
+    };
+    await user.click(await screen.findByRole('button', { name: 'Start radio' }));
+    await waitFor(() => expect(radioCalls().length).toBeGreaterThan(0));
+    const now = await screen.findByRole('button', { name: 'Play the queued song now' });
+    expect(calls.some((c) => c.url.endsWith('/player/started'))).toBe(false); // held until handover
+    await user.click(now);
+    await waitFor(() =>
+      expect(radioCalls().some((c) => c.url.endsWith('/radio/ended'))).toBe(true),
+    );
+  });
+
+  it('does not start radio while a guest song is waiting', async () => {
+    adminState = radioState(true);
+    open();
+    await ready();
+    expect(screen.queryByRole('button', { name: 'Start radio' })).toBeNull();
+    expect(radioCalls()).toHaveLength(0);
+  });
+
+  it('stays off when the organiser has not switched it on', async () => {
+    adminState = mkState({ reserved: false });
+    open();
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/player/claim'))).toBe(true));
+    expect(screen.queryByRole('button', { name: 'Start radio' })).toBeNull();
   });
 });

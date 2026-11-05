@@ -34,6 +34,17 @@ export function NowPlaying({ view }: { view: EventPublicView }) {
           </p>
           <TrackMeta style={np.track.style} artist={np.track.artist} />
         </div>
+      ) : view.radio ? (
+        // Radio fallback (ADR 0023): the room is hearing a station because no guest song is due.
+        <div key={`${view.radio.stationName}:${view.radio.startedAt}`} className="swap-in">
+          <p className="now-title" title={view.radio.title ?? undefined}>
+            {view.radio.title ?? 'Live radio'}
+          </p>
+          <p className="track-meta">
+            <GenreSwatch style={view.radio.genre} size={10} label={false} />
+            <span>Radio fallback · {view.radio.stationName}</span>
+          </p>
+        </div>
       ) : (
         <p className="muted">
           {view.state === 'PAUSED' || view.state === 'TRANSFERRING'

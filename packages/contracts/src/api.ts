@@ -70,7 +70,10 @@ export const CreateEventBody = z
      * (`/api/resolve-playlist`). They must fit the planned time minus one minute, and every
      * active genre needs at least one (see `songCoverageProblem`).
      */
-    songs: z.array(PlaylistSong.extend({ style: StyleId })).max(150).optional(),
+    songs: z
+      .array(PlaylistSong.extend({ style: StyleId }))
+      .max(150)
+      .optional(),
   })
   // Unknown fields (a client-supplied `name`, say) are an error, not silently dropped.
   .strict();
@@ -157,6 +160,14 @@ export const PlayerFinishedBody = z.object({
   requestId: Id,
   outcome: z.enum(['PLAYED', 'FAILED']),
 });
+export const PlayerRadioStartedBody = z.object({
+  leaseToken: z.string(),
+  epoch: z.number().int(),
+  stationId: z.string().min(1).max(60),
+  trackKey: z.string().min(1).max(64),
+  title: z.string().max(300).nullable().optional(),
+});
+export const RadioSettingBody = z.object({ enabled: z.boolean() });
 export const PlayerReleaseBody = z.object({ leaseToken: z.string(), epoch: z.number().int() });
 
 // GET /api/events/:id/admin/state (and /admin/stream)

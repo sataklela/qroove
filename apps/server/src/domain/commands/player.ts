@@ -21,7 +21,7 @@ interface LeaseInput {
 }
 
 /** The fencing check: right token AND the current epoch, otherwise this device is stale. */
-function checkLease(e: EventDoc, input: LeaseInput) {
+export function checkLease(e: EventDoc, input: LeaseInput) {
   const l = e.lease;
   if (!l || l.epoch !== input.epoch || !sameHash(l.controllerHash, sha256(input.leaseToken))) {
     throw new DomainError('STALE_LEASE');
@@ -156,6 +156,6 @@ export function releaseLease(deps: Deps, input: LeaseInput) {
   return runCommand(deps, input.eventId, {}, async (c) => {
     checkLease(c.event, input);
     audit(c, 'player.release', 'player', { epoch: input.epoch });
-    return { ok: true as const, version: c.tx.putEvent({ ...c.event, lease: null }) };
+    return { ok: true as const, version: c.tx.putEvent({ ...c.event, lease: null, radio: null }) };
   });
 }

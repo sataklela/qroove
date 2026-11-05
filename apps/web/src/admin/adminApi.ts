@@ -92,6 +92,18 @@ export const playerApi = {
   /** YouTube videos that are the same recording as a Spotify song, best first (may be empty). */
   youtube: (id: string, requestId: string) =>
     request<{ videoIds: string[] }>('GET', `${player(id)}/youtube/${requestId}`),
+  radioStarted: (
+    id: string,
+    l: LeaseCreds,
+    stationId: string,
+    trackKey: string,
+    title: string | null,
+  ) =>
+    request<{ ok: true }>('POST', `${player(id)}/radio/started`, {
+      body: { ...l, stationId, trackKey, title },
+    }),
+  radioEnded: (id: string, l: LeaseCreds) =>
+    request<{ ok: true }>('POST', `${player(id)}/radio/ended`, { body: l }),
   release: (id: string, l: LeaseCreds) =>
     request<{ ok: true }>('POST', `${player(id)}/release`, { body: l }),
 };
@@ -101,3 +113,7 @@ export function organiserPath(c: Pick<Created, 'adminUrl'>): string {
   const u = new URL(c.adminUrl);
   return `${u.pathname}${u.hash}`;
 }
+
+/** The organiser's switch for the radio fallback (ADR 0023). */
+export const setRadioFallback = (id: string, csrf: string, enabled: boolean) =>
+  request<{ ok: true }>('POST', `/api/events/${id}/admin/radio`, { body: { enabled }, csrf });

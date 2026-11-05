@@ -6,6 +6,7 @@ import type { AdminStream } from '../admin/useAdminStream';
 import { ErrorLine } from '../admin/useAction';
 import { ApiError } from '../shared/api';
 import { EmbedPlayer } from './EmbedPlayer';
+import { RadioFallback } from './RadioFallback';
 import { connectSpotify, fetchSpotifyToken, type SpotifyConnection } from './spotifySdk';
 import { sourceOf, type EmbedFailure, type Source } from './embed';
 import {
@@ -88,6 +89,8 @@ export function PlayerConsole({
   /** Requests whose Spotify playback was refused, so YouTube is tried instead. */
   const [spotifyFailed, setSpotifyFailed] = useState<Set<string>>(new Set());
   const [adMuted, setAdMuted] = useState(false);
+  /** A radio station is on: the next guest song waits for its handover (ADR 0023). */
+  const [radioHold, setRadioHold] = useState(false);
 
   const audio = useRef<HTMLAudioElement>(null);
   /** Request the audio element is currently loaded with, and whether the server has been told. */
@@ -326,7 +329,13 @@ export function PlayerConsole({
   // Auto-advance once audio is unlocked and the sound check is done.
   useEffect(() => {
     if (!reserved || (!match && !source) || !unlocked) return;
-    if (leaseState !== 'held' || s?.view.state !== 'ACTIVE' || nowPlaying || current.current)
+    if (
+      leaseState !== 'held' ||
+      s?.view.state !== 'ACTIVE' ||
+      nowPlaying ||
+      current.current ||
+      radioHold
+    )
       return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starting the next song is the effect
     if (match) void startFile(reserved.id, match.track, reserved.title, reserved.artist);
@@ -339,6 +348,7 @@ export function PlayerConsole({
     leaseState,
     s?.view.state,
     nowPlaying,
+    radioHold,
     startFile,
     startEmbed,
   ]);
@@ -469,7 +479,7 @@ export function PlayerConsole({
   const manualPlayingId =
     nowPlaying && audioId !== nowPlaying.track.requestId ? nowPlaying.track.requestId : null;
   const canStart = leaseState === 'held' && s.view.state === 'ACTIVE' && !nowPlaying;
-  const idle = !nowPlaying && !audioId;
+  const idle = !nowPlaying && !audioId && !radioHold;
 
   const extras = (
     <details className="card stack">
@@ -580,6 +590,20 @@ export function PlayerConsole({
         onPlaying={() => void onPlaying((audio.current?.duration ?? 0) * 1000 || null)}
         onEnded={() => void onEnded()}
         onError={() => void onMediaError()}
+      />
+      <RadioFallback
+        eventId={eventId}
+        view={s.view}
+        csrf={csrf}
+        lease={lease}
+        leaseHeld={leaseState === 'held'}
+        reservedId={reservedId}
+        busy={audioId !== null}
+        unlocked={unlocked}
+        onUnlocked={() => setUnlocked(true)}
+        onHold={setRadioHold}
+        onError={guard}
+        refresh={stream.refresh}
       />
       {audioId || nowPlaying ? (
         <p className="muted small">Keep this page open: the music stops if you leave it.</p>

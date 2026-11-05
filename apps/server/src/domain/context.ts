@@ -117,6 +117,18 @@ export async function loadWork(c: Ctx): Promise<Work> {
 
 /** Recomputes reservation + preview, writes touched requests and the event. Returns new version. */
 export function commit(c: Ctx, w: Work, opts: { recompute?: boolean } = {}): number {
+  // Radio only plays while nothing else does: a queue song, a pause, a break, the end or another
+  // device taking the player role all close it.
+  const r = w.event.radio;
+  if (
+    r &&
+    (w.event.state !== 'ACTIVE' ||
+      w.event.nowPlaying !== null ||
+      w.event.lease?.epoch !== r.leaseEpoch ||
+      w.event.breaks.some((b) => b.actualStart !== null && b.actualEnd === null))
+  ) {
+    w.event.radio = null;
+  }
   if (opts.recompute !== false) recompute(w, c.now);
   for (const id of w.dirty) c.tx.putRequest(w.requests.get(id)!);
   return c.tx.putEvent(w.event);

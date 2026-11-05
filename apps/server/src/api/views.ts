@@ -7,7 +7,9 @@ import type {
   StyleId,
   TrackView,
 } from '@qroove/contracts';
+import { radioStation } from '@qroove/config';
 import type { EventAggregate, RequestDoc } from '../db/types.js';
+import { radioEnabled } from '../domain/commands/radio.js';
 import { segmentIndexAt } from '../domain/history.js';
 import { sha256 } from '../domain/ids.js';
 
@@ -23,6 +25,14 @@ function trackView(r: RequestDoc, nicknames: Record<string, string | null>): Tra
     artworkUrl: r.artworkUrl,
     ownerNickname: nicknames[r.ownerId] ?? null,
   };
+}
+
+/** Radio on air, only while the player's lease is alive (a closed tab must not leave it showing). */
+function radioView(e: EventAggregate['event'], now: number): EventPublicView['radio'] {
+  const r = e.radio;
+  const station = r ? radioStation(r.stationId) : undefined;
+  if (!r || !station || !e.lease || e.lease.expiresAt <= now) return null;
+  return { stationName: station.name, genre: r.genre, title: r.title, startedAt: r.startedAt };
 }
 
 /** Sanitised: request ids and display nicknames only — no participant ids or tokens. */
@@ -57,6 +67,8 @@ export function publicView(agg: EventAggregate, now: number): EventPublicView {
             startedAt: e.nowPlaying.startedAt,
           }
         : null,
+    radioFallback: radioEnabled(e),
+    radio: radioView(e, now),
     waitingReason: e.waitingReason,
     runIndicator:
       last && cap !== null && e.history.runLength > 0
