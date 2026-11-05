@@ -1,6 +1,6 @@
 import { GENRES, STYLE_PRESETS, type GenreId } from '@qroove/config';
 import { allowedStyles, type EventPublicView } from '@qroove/contracts';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { api, ApiError, type Creds, type PlaylistSong } from '../shared/api';
 import { shortGenreLabel, styleBoxVars } from '../shared/Genre';
 import { PlaylistInput } from '../shared/PlaylistInput';
@@ -55,6 +55,7 @@ export function AddMusic({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   // Playlists added by this person to this event, kept on this device (no server field exists for it).
   const addedKey = `qroove:pl-added:${eventId}:${creds.participantId}`;
   const [addedIds, setAddedIds] = useState<string[]>(() => {
@@ -193,6 +194,11 @@ export function AddMusic({
         onPlaylist={(tracks, id) => {
           setLoadedPlaylist(id);
           onTracks('music', tracks);
+          // Once the menu has closed and the list is drawn, bring the loaded songs into view.
+          setTimeout(
+            () => listRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }),
+            50,
+          );
         }}
       />
       <fieldset className="genre-chips">
@@ -223,7 +229,9 @@ export function AddMusic({
       </p>
       {allowance ? <p className="muted small">{allowance}</p> : null}
       {songs.length > 0 ? (
-        <SongList songs={songs} onChange={setSongs} activeCount={take} label="Songs to add" />
+        <div ref={listRef}>
+          <SongList songs={songs} onChange={setSongs} activeCount={take} label="Songs to add" />
+        </div>
       ) : null}
       <button
         type="button"

@@ -81,7 +81,10 @@ export function SpotifyBrowse({
     setLoading(id);
     setProblem(null);
     try {
-      onPlaylist((await api.myPlaylist(id)).tracks, id);
+      const { tracks } = await api.myPlaylist(id);
+      // Picking a playlist closes the menu, so the songs it loaded are what the person sees.
+      setOpen(false);
+      onPlaylist(tracks, id);
     } catch (e) {
       setProblem(e instanceof ApiError ? e.message : 'We could not load that playlist.');
     } finally {
