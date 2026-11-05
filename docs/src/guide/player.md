@@ -49,7 +49,7 @@ checked it has the music. Reloading the page keeps the lease for the browser tab
 
 ## Radio fallback
 
-Radio fallback keeps the room playing when no guest song is due. It is on by default; untick it to turn it off. Once you press Start it begins at once unless a guest song is already queued (tap **Allow sound for the radio** once beforehand so the browser lets it start by itself). From then on it starts whenever nothing is due, including when one genre is held back by the run limit: the other genre's station fills the gap so the balance catches up. Pause stops it. The player shows the station, the genre and the track title (or "track
+Radio fallback keeps the room playing when no guest song is due. It is on by default; untick it to turn it off. Once you press Start it begins at once unless a guest song is already queued (tap **Allow sound for the radio** once beforehand so the browser lets it start by itself). From then on it starts whenever nothing is due, including when one genre is held back by the run limit: the other genre's station fills the gap so the balance catches up. Pause fades it out over 4 seconds (the sound simply ends on an iPhone, which ignores volume changes). The player shows the station, the genre and the track title (or "track
 information unavailable"). When a guest song becomes due it starts when the station's current track ends,
 at the latest after 4 minutes, or at once if you press **Play the queued song now**. The station may play
 hour-long DJ mixes, which is why the 4-minute limit exists. Guests see "Radio fallback" on _Now playing_.

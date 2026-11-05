@@ -85,6 +85,8 @@ export const RADIO_DEFAULTS = {
    * song, so a radio slot that fills a genre gap lasts roughly as long as the song it stands in for.
    */
   maxQueueWaitMs: 4 * 60_000,
+  /** Pausing at the end of the current song fades a playing station out over this long. */
+  pauseFadeMs: 4000,
   /** A failing station is not tried again for this long. */
   failureBackoffMs: 60_000,
 } as const;

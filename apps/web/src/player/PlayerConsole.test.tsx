@@ -398,6 +398,55 @@ describe('PlayerConsole radio fallback', () => {
     expect(radioCalls()).toHaveLength(0);
   });
 
+  it('switched off and on again, carries on with the same station and never rests it', async () => {
+    adminState = radioState(false);
+    const user = userEvent.setup();
+    const { container } = open();
+    await user.click(await screen.findByRole('button', { name: 'Start radio' }));
+    await waitFor(() =>
+      expect(radioCalls().filter((c) => c.url.endsWith('/radio/started'))).toHaveLength(1),
+    );
+    const box = await screen.findByRole('checkbox', { name: /Radio fallback/ });
+    for (let i = 0; i < 3; i++) {
+      Object.assign(adminState.view as object, { radioFallback: false });
+      await user.click(box);
+      // Taking the source off the element raises error events; they are not station failures.
+      await act(async () => {
+        fireEvent.error(container.querySelector('audio')!);
+        fireEvent.error(container.querySelector('audio')!);
+      });
+      Object.assign(adminState.view as object, { radioFallback: true });
+      await user.click(box);
+      await waitFor(() =>
+        expect(radioCalls().filter((c) => c.url.endsWith('/radio/started'))).toHaveLength(i + 2),
+      );
+    }
+    expect(screen.queryByText(/No working radio station/)).toBeNull();
+    expect(screen.queryByText(/would not play|stopped\./)).toBeNull();
+    const ids = radioCalls()
+      .filter((c) => c.url.endsWith('/radio/started'))
+      .map((c) => (c.body as { stationId: string }).stationId);
+    expect(new Set(ids).size).toBe(1);
+  });
+
+  it('an interrupted play() (off then on quickly) does not rest the station', async () => {
+    adminState = radioState(false);
+    const user = userEvent.setup();
+    open();
+    HTMLMediaElement.prototype.play = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('interrupted', 'AbortError'))
+      .mockResolvedValue(undefined);
+    await user.click(await screen.findByRole('button', { name: 'Start radio' }));
+    // The interrupted attempt says nothing against the station: the tap simply works again.
+    expect(await screen.findByRole('button', { name: 'Start radio' })).toBeInTheDocument();
+    expect(screen.queryByText(/would not play|No working radio station/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Start radio' }));
+    await waitFor(() =>
+      expect(radioCalls().some((c) => c.url.endsWith('/radio/started'))).toBe(true),
+    );
+  });
+
   it('does not start radio while a guest song is waiting', async () => {
     adminState = radioState(true);
     open();

@@ -5,6 +5,7 @@ import {
   GENRES,
   RADIO_DEFAULTS,
   chooseRadioStation,
+  radioStation,
   genresOf,
   type GenreId,
   type RadioStation,
@@ -29,6 +30,19 @@ const genreName = (g: string) => GENRES.find((x) => x.id === g)?.label ?? g;
  * song that becomes due waits for the station's next track (or the maximum wait) and then takes
  * over through the normal player: `onHold` keeps the normal auto-advance off until then.
  */
+/** iPhones ignore `volume`; there a fade would only delay the stop, so the sound just ends. */
+function canFade(a: HTMLAudioElement): boolean {
+  const was = a.volume;
+  try {
+    a.volume = was === 1 ? 0.99 : 1;
+    const ok = a.volume !== was;
+    a.volume = was;
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export function RadioFallback({
   eventId,
   view,
@@ -76,6 +90,8 @@ export function RadioFallback({
   const lastKey = useRef<string | null>(null);
   const lastOk = useRef(0);
   const starting = useRef(false);
+  /** The station that was on when the organiser switched radio off. */
+  const resumeId = useRef<string | null>(null);
 
   const on = view.radioFallback;
   const onBreak = view.breaks.some((b) => b.actualStart !== null && b.actualEnd === null);
@@ -159,9 +175,22 @@ export function RadioFallback({
       const a = audio.current;
       const l = lease.current;
       if (!a || !l || starting.current) return;
-      const s = pick();
+      // A tap is the organiser asking for sound now: earlier failures are forgotten.
+      if (byTap) {
+        resting.current.clear();
+        failures.current.clear();
+      }
+      // Switched off and on again with nothing else played: carry on with the same station.
+      const back = resumeId.current ? radioStation(resumeId.current) : undefined;
+      resumeId.current = null;
+      const rested = (resting.current.get(back?.id ?? '') ?? 0) > Date.now();
+      const s =
+        back && back.enabled && choice.allowed.includes(back.genre) && !rested ? back : pick();
       if (!s) {
         setMessage('No working radio station is available for this event. Music is on hold.');
+        // Failures are never permanent: try again when the earliest resting station is back.
+        const back = Math.min(...[...resting.current.values()].filter((u) => u > Date.now()));
+        if (Number.isFinite(back)) setTimeout(() => setTick((n) => n + 1), back - Date.now() + 100);
         return;
       }
       starting.current = true;
@@ -176,6 +205,11 @@ export function RadioFallback({
         starting.current = false;
         if (!byTap && err instanceof DOMException && err.name === 'NotAllowedError') {
           setNeedsTap(true);
+          return;
+        }
+        // Our own pause or reload interrupting play() (a quick off and on) is not the station's fault.
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          setTick((n) => n + 1);
           return;
         }
         // Any other failure rests the station, so it cannot be retried in a loop.
@@ -211,24 +245,42 @@ export function RadioFallback({
       }
       refresh();
     },
-    [eventId, lease, onError, onUnlocked, pick, refresh, stop],
+    [eventId, lease, onError, onUnlocked, pick, refresh, stop, choice],
   );
 
   // Starts by itself once the browser has allowed sound; the first start needs a tap.
   useEffect(() => {
     if (canRun && !reservedId && phase === 'idle' && unlocked && !needsTap) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- starting the radio is the effect
       void start(false);
     }
   }, [canRun, reservedId, phase, unlocked, needsTap, start, tick]);
 
-  // Anything that rules radio out stops it (the server has already closed its side).
+  // Anything that rules radio out stops it (the server has already closed its side). A pause
+  // ("Pause at end of current song") tapers the sound away over a few seconds instead of cutting it.
   useEffect(() => {
-    if (!canRun && phase !== 'idle') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      stop(leaseHeld);
+    if (canRun || phase === 'idle') return;
+    const a = audio.current;
+    if (view.state === 'PAUSED' && phase === 'playing' && a && canFade(a)) {
+      const from = a.volume;
+      const began = Date.now();
+      const id = setInterval(() => {
+        const left = 1 - (Date.now() - began) / RADIO_DEFAULTS.pauseFadeMs;
+        if (left > 0) {
+          a.volume = Math.max(0, from * left);
+          return;
+        }
+        clearInterval(id);
+        stop(leaseHeld);
+        a.volume = from;
+      }, 100);
+      // Resumed (or anything else changed) before the end: back to full sound.
+      return () => {
+        clearInterval(id);
+        a.volume = from;
+      };
     }
-  }, [canRun, phase, leaseHeld, stop]);
+    stop(leaseHeld);
+  }, [canRun, phase, leaseHeld, stop, view.state]);
 
   // The main player stays off while a station is on, until the handover below.
   useEffect(() => {
@@ -296,6 +348,9 @@ export function RadioFallback({
   }, [waitingSince, handOver]);
 
   function failed() {
+    // Taking the source off the element (a deliberate stop) also raises an error event. That is
+    // not a station failure, and counting it rested every station after a few toggles.
+    if (!audio.current?.getAttribute('src') || !station) return;
     const s = station;
     stop(true);
     if (!s) return;
@@ -313,7 +368,15 @@ export function RadioFallback({
     if (!csrf) return;
     try {
       await setRadioFallback(eventId, csrf, next);
-      if (!next) stop(true);
+      if (!next) {
+        resumeId.current = station?.id ?? resumeId.current;
+        stop(true);
+      } else {
+        // Switching it on is the organiser's say-so: forget earlier failures.
+        resting.current.clear();
+        failures.current.clear();
+        setMessage(null);
+      }
       refresh();
     } catch (e) {
       onError(e);
