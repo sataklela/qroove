@@ -134,6 +134,7 @@ export function adminState(agg: EventAggregate, now: number, baseUrl: string): A
     possibleDuplicate: r.possibleDuplicate,
     removedReason: r.removedReason,
     sourceUrl: r.sourceUrl,
+    durationMs: r.durationMs,
   }));
   const l = agg.event.lease;
   return {

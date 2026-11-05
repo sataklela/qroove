@@ -12,6 +12,8 @@ becomes the player.
 
 Tap **Log in with Spotify** once on the organiser's device, with a Premium account that is on the pilot list. The page then plays the music itself. If that cannot start on your device, Spotify's embedded player is used instead.
 
+If Spotify cannot play a song in full (no Premium login, a refused account, or only a 30-second preview), the page plays the same recording from YouTube instead, in YouTube's own embedded player. Nothing changes on screen except a line saying so. YouTube may show adverts: the page keeps its own output muted until the song itself is playing, and again during any advert in the middle of it, while the advert plays out unchanged. This is a best guess from the player's reported length, and it gives up and unmutes after two minutes. It needs `YOUTUBE_API_KEY` on the server; without it Spotify's behaviour is unchanged.
+
 Press **Start playing** at the top of the organiser page. Browsers need one tap before they play sound; after that, songs
 start by themselves. **Keep the page open**, because the music stops if you leave it.
 

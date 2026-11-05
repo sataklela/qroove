@@ -16,6 +16,8 @@ const schema = z.object({
   SPOTIFY_CLIENT_ID: z.string().optional(),
   SPOTIFY_CLIENT_SECRET: z.string().optional(),
   SPOTIFY_DEV_CLIENT_ID: z.string().optional(),
+  /** YouTube Data API v3 key (restricted to that API); without it songs play only via Spotify. */
+  YOUTUBE_API_KEY: z.string().optional(),
   RAILWAY_GIT_COMMIT_SHA: z.string().optional(),
   WEB_DIST: z.string().optional(),
   DOCS_DIST: z.string().optional(),

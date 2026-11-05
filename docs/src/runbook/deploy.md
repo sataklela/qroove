@@ -13,7 +13,7 @@ Qroove runs as one Railway service (one instance, Dockerfile build) behind `qroo
 
 `NODE_ENV=production`, `PUBLIC_BASE_URL=https://qroove.sataklela.com`, `REPO_DRIVER=firestore`,
 `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_B64`, `COOKIE_SECRET`, `CRON_SECRET`,
-`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`. `PUBLIC_BASE_URL` must match the address people use: admin
+`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and optionally `YOUTUBE_API_KEY` (a Google Cloud key restricted to the YouTube Data API v3; it allows about 99 new song matches a day). `PUBLIC_BASE_URL` must match the address people use: admin
 cookies are `Secure` and the same-origin check compares against it.
 
 ## Deploying

@@ -1,3 +1,4 @@
+import { YouTubeMatcher } from './ingestion/providers/youtube.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import compress from '@fastify/compress';
@@ -132,6 +133,7 @@ export async function buildApp(
       now: () => clock.now(),
       spotify,
     }),
+    youtube: new YouTubeMatcher(doFetch, env.YOUTUBE_API_KEY, repo, () => clock.now()),
     bus,
     sec,
     limiter,

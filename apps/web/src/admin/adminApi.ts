@@ -89,6 +89,9 @@ export const playerApi = {
     }),
   finished: (id: string, l: LeaseCreds, requestId: string, outcome: 'PLAYED' | 'FAILED') =>
     request<{ ok: true }>('POST', `${player(id)}/finished`, { body: { ...l, requestId, outcome } }),
+  /** YouTube videos that are the same recording as a Spotify song, best first (may be empty). */
+  youtube: (id: string, requestId: string) =>
+    request<{ videoIds: string[] }>('GET', `${player(id)}/youtube/${requestId}`),
   release: (id: string, l: LeaseCreds) =>
     request<{ ok: true }>('POST', `${player(id)}/release`, { body: l }),
 };

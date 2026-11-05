@@ -13,18 +13,23 @@ export function EmbedPlayer({
   useEffect(() => {
     latest.current = events;
   });
-  const { kind, id } = source;
+  const { kind, id, expectedMs } = source;
   useEffect(() => {
     if (!host.current) return;
     const ev: EmbedEvents = {
       onPlaying: (ms) => latest.current.onPlaying(ms),
       onEnded: () => latest.current.onEnded(),
       onFailed: (why) => latest.current.onFailed(why),
+      onAd: (muted) => latest.current.onAd?.(muted),
     };
     // Signed in: the page itself plays, so there is no provider box to show.
     if (spotify && kind === 'spotify') return spotify.play(id, ev);
-    return mountEmbed(host.current, { kind, id }, ev);
-  }, [kind, id, spotify]);
+    return mountEmbed(
+      host.current,
+      expectedMs === undefined ? { kind, id } : { kind, id, expectedMs },
+      ev,
+    );
+  }, [kind, id, expectedMs, spotify]);
   return (
     <div ref={host} className={spotify && kind === 'spotify' ? undefined : `embed-host ${kind}`} />
   );

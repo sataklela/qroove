@@ -94,10 +94,11 @@ All require the admin cookie (and origin + CSRF for non-GET) unless noted.
 
 ## Player
 
-| Route                    | Auth         | Notes                                                                      |
-| ------------------------ | ------------ | -------------------------------------------------------------------------- |
-| `POST /player/claim`     | Admin cookie | `{ takeover? }` → `{ leaseToken, lease }`. Fences out the previous device. |
-| `POST /player/heartbeat` | Lease        | Every 10 s; the lease lapses after 30 s                                    |
-| `POST /player/started`   | Lease        | Must name the reserved request; this is when a song counts                 |
-| `POST /player/finished`  | Lease        | `outcome: PLAYED \| FAILED`; idempotent                                    |
-| `POST /player/release`   | Lease        |                                                                            |
+| Route                      | Auth         | Notes                                                                                                       |
+| -------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
+| `POST /player/claim`       | Admin cookie | `{ takeover? }` → `{ leaseToken, lease }`. Fences out the previous device.                                  |
+| `GET /player/youtube/:rid` | Admin cookie | `{ videoIds }`: up to 3 YouTube videos that are the same recording as a Spotify song, best first (ADR 0022) |
+| `POST /player/heartbeat`   | Lease        | Every 10 s; the lease lapses after 30 s                                                                     |
+| `POST /player/started`     | Lease        | Must name the reserved request; this is when a song counts                                                  |
+| `POST /player/finished`    | Lease        | `outcome: PLAYED \| FAILED`; idempotent                                                                     |
+| `POST /player/release`     | Lease        |                                                                                                             |

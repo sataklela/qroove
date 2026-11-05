@@ -6,9 +6,11 @@ import { PlayerConsole } from './PlayerConsole';
 
 type Events = import('./embed').EmbedEvents;
 let embedEvents: Events | null = null;
+let embedSource: { kind: string; id: string; expectedMs?: number } | null = null;
 vi.mock('./embed', async (real) => ({
   ...(await real<typeof import('./embed')>()),
-  mountEmbed: (_el: HTMLElement, _s: unknown, ev: Events) => {
+  mountEmbed: (_el: HTMLElement, src: typeof embedSource, ev: Events) => {
+    embedSource = src;
     embedEvents = ev;
     return () => undefined;
   },
@@ -24,6 +26,7 @@ type Call = { method: string; url: string; body: Record<string, unknown> | undef
 let calls: Call[];
 let adminState: Record<string, unknown>;
 let failPath: string | null;
+let ytIds: string[];
 
 const rules = { rulesVersion: 1, enabledStyles: ['salsa'], runCaps: {}, submissionLimit: 5 };
 const mkState = (over: { reserved?: boolean; playing?: boolean; epoch?: number | null } = {}) => ({
@@ -62,7 +65,9 @@ const mkState = (over: { reserved?: boolean; playing?: boolean; epoch?: number |
 beforeEach(() => {
   calls = [];
   embedEvents = null;
+  embedSource = null;
   failPath = null;
+  ytIds = [];
   sessionStorage.clear();
   adminState = mkState({ reserved: true });
   vi.stubGlobal('EventSource', undefined);
@@ -80,6 +85,7 @@ beforeEach(() => {
       );
     }
     if (url.endsWith('/admin/state')) return new Response(JSON.stringify(adminState));
+    if (url.includes('/player/youtube/')) return new Response(JSON.stringify({ videoIds: ytIds }));
     if (url.endsWith('/player/claim')) {
       return new Response(JSON.stringify({ leaseToken: 'tok', lease: { epoch: 4, expiresAt: 1 } }));
     }
@@ -146,6 +152,65 @@ describe('PlayerConsole with a Spotify link', () => {
     expect(calls.some((c) => c.url.endsWith('/player/started'))).toBe(false);
     expect(screen.getByRole('button', { name: 'Mark started' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try the player again' })).toBeInTheDocument();
+  });
+});
+
+describe('PlayerConsole with a YouTube match for a Spotify song', () => {
+  beforeEach(() => {
+    ytIds = ['abcdefghijk', 'lmnopqrstuv'];
+    const st = mkState({ reserved: true });
+    Object.assign(st.requests[0] as object, {
+      sourceUrl: `https://open.spotify.com/track/${'a'.repeat(22)}`,
+      durationMs: 229_000,
+    });
+    adminState = st;
+  });
+  it('plays the matched video in full when Spotify is not signed in', async () => {
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await screen.findByText(/will play from YouTube/);
+    await user.click(screen.getByRole('button', { name: 'Start playing' }));
+    await waitFor(() => expect(embedEvents).not.toBeNull());
+    expect(calls.some((c) => c.url.endsWith('/player/youtube/r1'))).toBe(true);
+    act(() => embedEvents!.onPlaying(229_000));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/player/started'))).toBe(true));
+    expect(embedSource).toEqual({ kind: 'youtube', id: 'abcdefghijk', expectedMs: 229_000 });
+  });
+
+  it('says so while an advert is muted', async () => {
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(await screen.findByRole('button', { name: 'Start playing' }));
+    await waitFor(() => expect(embedEvents).not.toBeNull());
+    act(() => embedEvents!.onAd!(true));
+    await screen.findByText(/adverts play with the sound off/);
+    act(() => embedEvents!.onAd!(false));
+    await waitFor(() => expect(screen.queryByText(/Muted until the song starts/)).toBeNull());
+  });
+
+  it('tries the next match when the first cannot be embedded, then gives up', async () => {
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(await screen.findByRole('button', { name: 'Start playing' }));
+    await waitFor(() => expect(embedSource?.id).toBe('abcdefghijk'));
+    act(() => embedEvents!.onFailed('blocked'));
+    await waitFor(() => expect(embedSource?.id).toBe('lmnopqrstuv'));
+    act(() => embedEvents!.onFailed('blocked'));
+    await screen.findByText(/cannot be played here/);
+  });
+
+  it('keeps the old preview behaviour when there is no match', async () => {
+    ytIds = [];
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(await screen.findByRole('button', { name: 'Start playing' }));
+    await waitFor(() => expect(embedEvents).not.toBeNull());
+    act(() => embedEvents!.onFailed('preview'));
+    await screen.findByText(/only a 30-second preview/);
   });
 });
 

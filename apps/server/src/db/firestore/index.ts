@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import type { YouTubeMatchDoc } from '../types.js';
 import type { DocumentReference, Firestore, Query, Transaction } from 'firebase-admin/firestore';
 import type { EventTx, Repository } from '../ports.js';
 import { EMPTY_NAME_LEDGER } from '../types.js';
@@ -136,6 +137,15 @@ export class FirestoreRepository implements Repository {
       t.set(ref, ledger);
       return result;
     });
+  }
+
+  async getYouTubeMatch(spotifyId: string): Promise<YouTubeMatchDoc | null> {
+    const snap = await this.db.collection('ytMatch').doc(spotifyId).get();
+    return snap.exists ? (snap.data() as YouTubeMatchDoc) : null;
+  }
+
+  async putYouTubeMatch(spotifyId: string, match: YouTubeMatchDoc): Promise<void> {
+    await this.db.collection('ytMatch').doc(spotifyId).set(match);
   }
 
   async purge(c: PurgeCutoffs): Promise<PurgeReport> {

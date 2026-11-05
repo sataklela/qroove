@@ -89,6 +89,7 @@ export default defineConfig({
           { text: '0019 Spotify Web Playback', link: '/adr/0019-spotify-web-playback' },
           { text: '0020 Spotify search and limits', link: '/adr/0020-spotify-browse-and-limits' },
           { text: '0021 UI overhaul', link: '/adr/0021-ui-overhaul' },
+          { text: '0022 YouTube fallback playback', link: '/adr/0022-youtube-fallback-playback' },
         ],
       },
       {

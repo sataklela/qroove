@@ -1,3 +1,4 @@
+import type { YouTubeMatchDoc } from '../types.js';
 import type { EventTx, Repository } from '../ports.js';
 import { EMPTY_NAME_LEDGER } from '../types.js';
 import type {
@@ -99,6 +100,17 @@ export class MemoryRepository implements Repository {
 
   async listAudit(eventId: string): Promise<AuditDoc[]> {
     return clone(this.stores.get(eventId)?.audit ?? []);
+  }
+
+  private matches = new Map<string, YouTubeMatchDoc>();
+
+  async getYouTubeMatch(spotifyId: string): Promise<YouTubeMatchDoc | null> {
+    const m = this.matches.get(spotifyId);
+    return m ? clone(m) : null;
+  }
+
+  async putYouTubeMatch(spotifyId: string, match: YouTubeMatchDoc): Promise<void> {
+    this.matches.set(spotifyId, clone(match));
   }
 
   private ledger: NameLedger = structuredClone(EMPTY_NAME_LEDGER);

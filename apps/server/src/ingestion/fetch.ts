@@ -7,6 +7,7 @@ export const ALLOWED_HOSTS: ReadonlySet<string> = new Set([
   'open.spotify.com',
   'itunes.apple.com',
   'www.youtube.com',
+  'www.googleapis.com',
   'music.apple.com',
 ]);
 

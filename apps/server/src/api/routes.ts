@@ -57,7 +57,7 @@ const ridParams = z.object({ id: Id, rid: Id });
 const bidParams = z.object({ id: Id, bid: Id });
 
 export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
-  const { deps, env, ingestion, bus, sec, limiter } = ctx;
+  const { deps, env, ingestion, youtube, bus, sec, limiter } = ctx;
   const base = env.PUBLIC_BASE_URL.replace(/\/$/, '');
   const idemKey = (req: FastifyRequest) => {
     const k = req.headers['idempotency-key'];
@@ -505,6 +505,25 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
     });
     reply.header('cache-control', 'no-store');
     return { leaseToken: r.leaseToken, lease: r.lease };
+  });
+
+  // The YouTube videos that are the same recording as a Spotify song, best first (see ADR 0022).
+  app.get('/api/events/:id/player/youtube/:rid', async (req, reply) => {
+    const { id, rid } = parse(ridParams, req.params);
+    limit(`yt-match:${req.ip}`, 60, MINUTE);
+    await verifyAdmin(deps, id, admin(req, id).adminSecret);
+    const r = (await agg(id)).requests.find((x) => x.id === rid);
+    const spotifyId = /^https:\/\/open\.spotify\.com\/track\/([A-Za-z0-9]{22})$/.exec(
+      r?.sourceUrl ?? '',
+    )?.[1];
+    reply.header('cache-control', 'no-store');
+    if (!r || !spotifyId) return { videoIds: [] };
+    const videoIds = await youtube.match(spotifyId, {
+      title: r.title,
+      artist: r.artist,
+      durationMs: r.durationMs,
+    });
+    return { videoIds };
   });
 
   app.post('/api/events/:id/player/heartbeat', async (req) => {

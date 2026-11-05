@@ -82,10 +82,16 @@ export function PlayerConsole({
     'checking',
   );
   const [paused, setPaused] = useState(false);
+  /** YouTube matches for Spotify songs (see ADR 0022): ids by request, and which one is in use. */
+  const [ytIds, setYtIds] = useState<Record<string, string[]>>({});
+  const [ytIndex, setYtIndex] = useState<Record<string, number>>({});
+  /** Requests whose Spotify playback was refused, so YouTube is tried instead. */
+  const [spotifyFailed, setSpotifyFailed] = useState<Set<string>>(new Set());
+  const [adMuted, setAdMuted] = useState(false);
 
   const audio = useRef<HTMLAudioElement>(null);
   /** Request the audio element is currently loaded with, and whether the server has been told. */
-  const current = useRef<{ id: string; reported: boolean; url: string } | null>(null);
+  const current = useRef<{ id: string; reported: boolean; url: string; src?: Source } | null>(null);
   const wake = useRef<WakeLockSentinel | null>(null);
 
   const reserved = s?.requests.find((r) => r.state === 'RESERVED_NEXT') ?? null;
@@ -101,10 +107,33 @@ export function PlayerConsole({
   // A local file wins (no adverts, no sign-in); otherwise the song's own Spotify or YouTube player.
   const reservedUrl = reserved?.sourceUrl ?? null;
   const reservedId = reserved?.id ?? null;
-  const source = useMemo(
-    () => (reservedId && !failed.has(reservedId) ? sourceOf(reservedUrl) : null),
-    [reservedId, reservedUrl, failed],
-  );
+  const spotifyBase = reservedId && !failed.has(reservedId) ? sourceOf(reservedUrl) : null;
+  // Spotify's own player when it can play in full; otherwise the matching YouTube video, if any.
+  const wantYouTube =
+    spotifyBase?.kind === 'spotify' &&
+    reservedId !== null &&
+    (spotifyFailed.has(reservedId) || spotifyStatus === 'out' || spotifyStatus === 'problem');
+  const reservedDuration = reserved?.durationMs ?? null;
+  useEffect(() => {
+    if (!wantYouTube || !reservedId || ytIds[reservedId]) return;
+    let live = true;
+    playerApi
+      .youtube(eventId, reservedId)
+      .then((r) => live && setYtIds((m) => ({ ...m, [reservedId]: r.videoIds ?? [] })))
+      .catch(() => live && setYtIds((m) => ({ ...m, [reservedId]: [] })));
+    return () => {
+      live = false;
+    };
+  }, [wantYouTube, reservedId, eventId, ytIds]);
+  const source = useMemo((): Source | null => {
+    if (!spotifyBase || !wantYouTube || !reservedId) return spotifyBase;
+    const ids = ytIds[reservedId];
+    // Still looking: wait rather than start Spotify's 30-second preview.
+    if (!ids) return null;
+    const id = ids[ytIndex[reservedId] ?? 0];
+    if (!id) return spotifyBase;
+    return reservedDuration ? { kind: 'youtube', id, expectedMs: reservedDuration } : spotifyBase;
+  }, [spotifyBase, wantYouTube, reservedId, ytIds, ytIndex, reservedDuration]);
 
   // ---- lease -------------------------------------------------------------------------------
   const stopAudio = useCallback(() => {
@@ -118,6 +147,7 @@ export function PlayerConsole({
     current.current = null;
     setAudioId(null);
     setEmbed(null);
+    setAdMuted(false);
     void wake.current?.release().catch(() => undefined);
     wake.current = null;
   }, []);
@@ -287,7 +317,7 @@ export function PlayerConsole({
 
   const startEmbed = useCallback((id: string, src: Source) => {
     if (current.current) return;
-    current.current = { id, reported: false, url: '' };
+    current.current = { id, reported: false, url: '', src };
     setAudioId(id);
     setEmbed({ id, source: src });
     setUnlocked(true);
@@ -352,6 +382,32 @@ export function PlayerConsole({
     if (why === 'account') {
       setSpotify(null);
       setSpotifyStatus('problem');
+    }
+    // Spotify refused or offered only a preview: the same song may play in full from YouTube.
+    const asked = c.src;
+    const spotifyRefused = (why === 'account' || why === 'preview') && asked?.kind !== 'youtube';
+    const maybeYouTube = ytIds[c.id] === undefined || ytIds[c.id]!.length > 0;
+    if (
+      spotifyRefused &&
+      maybeYouTube &&
+      !spotifyFailed.has(c.id) &&
+      sourceOf(reservedUrl)?.kind === 'spotify'
+    ) {
+      setSpotifyFailed((f) => new Set(f).add(c.id));
+      setNotice('Spotify offered only a preview, so this song is played from YouTube instead.');
+      stream.refresh();
+      return;
+    }
+    // A YouTube match that cannot be embedded: try the next-best one before giving up.
+    const matched = asked?.kind === 'youtube' && asked.expectedMs !== undefined;
+    if (why === 'blocked' && matched) {
+      const next = (ytIndex[c.id] ?? 0) + 1;
+      if (ytIds[c.id]?.[next]) {
+        setYtIndex((m) => ({ ...m, [c.id]: next }));
+        stream.refresh();
+        return;
+      }
+      setYtIds((m) => ({ ...m, [c.id]: [] }));
     }
     if (c.reported) await playerApi.finished(eventId, l, c.id, 'FAILED').catch(guard);
     else setFailed((f) => new Set(f).add(c.id));
@@ -497,7 +553,13 @@ export function PlayerConsole({
           onPlaying={(ms) => void onPlaying(ms)}
           onEnded={() => void onEnded()}
           onFailed={(why) => void onMediaError(why)}
+          onAd={setAdMuted}
         />
+      ) : null}
+      {adMuted ? (
+        <p className="muted small" role="status">
+          Muted until the song starts: adverts play with the sound off.
+        </p>
       ) : null}
       {embed && spotify ? (
         <button
@@ -540,6 +602,10 @@ export function PlayerConsole({
               <p className="muted small">
                 {match.kind === 'exact' ? 'File found' : 'Probable file (title only)'}:{' '}
                 {match.track.file.name}
+              </p>
+            ) : source?.kind === 'youtube' && source.expectedMs !== undefined ? (
+              <p className="muted small">
+                This song will play from YouTube. Any advert plays with the sound off.
               </p>
             ) : source?.kind === 'spotify' && spotifyStatus === 'out' ? (
               <>

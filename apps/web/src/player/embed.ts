@@ -5,6 +5,11 @@
 export interface Source {
   kind: 'spotify' | 'youtube';
   id: string;
+  /**
+   * The song's real length when the video was matched to a Spotify song. With it the page keeps its
+   * own output muted while anything else (an advert) is playing, and unmutes for the song.
+   */
+  expectedMs?: number;
 }
 
 export type EmbedFailure = 'blocked' | 'preview' | 'account';
@@ -14,6 +19,8 @@ export interface EmbedEvents {
   onPlaying: (durationMs: number | null) => void;
   onEnded: () => void;
   onFailed: (why: EmbedFailure) => void;
+  /** True while this page is holding its own output muted for an advert. */
+  onAd?: (muted: boolean) => void;
 }
 
 /** Stored source links are canonical (see `safeSourceUrl`), so only those shapes are recognised. */
@@ -28,6 +35,11 @@ export function sourceOf(url: string | null | undefined): Source | null {
 
 interface YtPlayer {
   playVideo(): void;
+  mute(): void;
+  unMute(): void;
+  setVolume(volume: number): void;
+  getDuration(): number;
+  getVideoData(): { video_id?: string };
   destroy(): void;
 }
 interface SpotifyUpdate {
@@ -62,6 +74,33 @@ function loadYouTube(): Promise<void> {
 
 const YT_PLAYING = 1;
 const YT_ENDED = 0;
+const AD_POLL_MS = 500;
+/** Length tolerance between the matched video and the Spotify song. */
+const AD_LENGTH_SLACK_MS = 5_000;
+/** If the pattern never settles, stop guessing and play: silence in the room is worse than an advert. */
+export const AD_MUTE_CAP_MS = 120_000;
+
+export interface YtSample {
+  videoId: string | undefined;
+  durationMs: number;
+}
+
+/**
+ * Pure. Is the song itself playing ('play') or something else, normally an advert ('mute')? Only
+ * the player's own standard getters are read: an advert reports its own, much shorter, length.
+ * After `AD_MUTE_CAP_MS` of continuous muting it gives up and plays.
+ */
+export function adGate(
+  sample: YtSample | null,
+  want: { id: string; expectedMs: number },
+  mutedForMs: number,
+): 'mute' | 'play' {
+  if (mutedForMs >= AD_MUTE_CAP_MS) return 'play';
+  if (!sample) return 'mute';
+  const sameLength = Math.abs(sample.durationMs - want.expectedMs) <= AD_LENGTH_SLACK_MS;
+  const sameVideo = sample.videoId === undefined || sample.videoId === want.id;
+  return sameLength && sameVideo ? 'play' : 'mute';
+}
 /** Without a signed-in Premium session Spotify's embed offers only this much of a song. */
 const PREVIEW_MS = 31_000;
 
@@ -105,13 +144,60 @@ export function mountEmbed(host: HTMLElement, source: Source, ev: EmbedEvents): 
       .then(() => {
         if (gone || !window.YT) return;
         let started = false;
-        const player = new window.YT.Player(el, {
+        const gated = source.expectedMs !== undefined;
+        const expectedMs = source.expectedMs ?? 0;
+        let muted = false;
+        let mutedSince = 0;
+        let givenUp = false;
+        let timer: ReturnType<typeof setInterval> | undefined;
+        // Output is muted (never the advert itself: it plays out) until the song is what plays.
+        const setMuted = (on: boolean) => {
+          if (on === muted) return;
+          muted = on;
+          mutedSince = performance.now();
+          if (on) player.mute();
+          else {
+            player.unMute();
+            player.setVolume(100);
+          }
+          ev.onAd?.(on);
+        };
+        const check = () => {
+          const verdict = givenUp
+            ? 'play'
+            : adGate(
+                {
+                  videoId: player.getVideoData().video_id,
+                  durationMs: player.getDuration() * 1000,
+                },
+                { id: source.id, expectedMs },
+                muted ? performance.now() - mutedSince : 0,
+              );
+          if (verdict === 'play' && muted && performance.now() - mutedSince >= AD_MUTE_CAP_MS) {
+            givenUp = true;
+          }
+          setMuted(verdict === 'mute');
+          if (verdict === 'play' && !started) {
+            started = true;
+            ev.onPlaying(expectedMs);
+          }
+        };
+        const player: YtPlayer = new window.YT.Player(el, {
           videoId: source.id,
           playerVars: { autoplay: 1, playsinline: 1, rel: 0, origin: window.location.origin },
           events: {
-            onReady: () => player.playVideo(),
+            onReady: () => {
+              if (gated) {
+                setMuted(true);
+                timer = setInterval(check, AD_POLL_MS);
+              }
+              player.playVideo();
+            },
             onStateChange: (e: { data: number }) => {
-              if (e.data === YT_PLAYING && !started) {
+              if (gated) {
+                // Adverts and the song share one player; only the gate says which is playing.
+                if (e.data === YT_ENDED && started && !muted) ev.onEnded();
+              } else if (e.data === YT_PLAYING && !started) {
                 started = true;
                 // Not the player's length: an advert would report its own.
                 ev.onPlaying(null);
@@ -121,7 +207,10 @@ export function mountEmbed(host: HTMLElement, source: Source, ev: EmbedEvents): 
             onError: fail,
           },
         });
-        destroy = () => player.destroy();
+        destroy = () => {
+          clearInterval(timer);
+          player.destroy();
+        };
       })
       .catch(fail);
   } else {

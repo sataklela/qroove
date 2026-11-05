@@ -192,4 +192,10 @@ export interface NameLedger {
   cycle: number;
 }
 
+/** A cached Spotify-song to YouTube-video match. An empty list records "looked, found nothing". */
+export interface YouTubeMatchDoc {
+  videoIds: string[];
+  checkedAt: number;
+}
+
 export const EMPTY_NAME_LEDGER: NameLedger = { used: [], last: null, cycle: 0 };

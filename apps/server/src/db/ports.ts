@@ -6,6 +6,7 @@ import type {
   HandoverOfferDoc,
   IdempotencyDoc,
   NameLedger,
+  YouTubeMatchDoc,
   NewEventBundle,
   PurgeCutoffs,
   PurgeReport,
@@ -68,6 +69,9 @@ export interface Repository {
    * same name (or consecutive names that share a word).
    */
   updateNameLedger<T>(fn: (l: NameLedger) => { ledger: NameLedger; result: T }): Promise<T>;
+  /** Match cache keyed by the Spotify track id; shared by all events. */
+  getYouTubeMatch(spotifyId: string): Promise<YouTubeMatchDoc | null>;
+  putYouTubeMatch(spotifyId: string, match: YouTubeMatchDoc): Promise<void>;
   /** Retention: removes expired data across all events. Safe to run repeatedly. */
   purge(cutoffs: PurgeCutoffs): Promise<PurgeReport>;
   close(): Promise<void>;
