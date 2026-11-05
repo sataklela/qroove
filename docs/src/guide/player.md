@@ -49,12 +49,10 @@ checked it has the music. Reloading the page keeps the lease for the browser tab
 
 ## Radio fallback
 
-Tick **Radio fallback** under the player to keep the room playing when no guest song is due (it is off
-until you do). Tap **Start radio** once so the browser allows sound; after that the radio starts by itself
-whenever the queue is empty. The player shows the station, the genre and the track title (or "track
+Radio fallback keeps the room playing when no guest song is due. It is on by default; untick it to turn it off. After you press Start it waits 5 minutes for a first guest song (tap **Allow sound for the radio** once during that time so the browser lets it start by itself). After that it starts whenever nothing is due, including when one genre is held back by the run limit: the other genre's station fills the gap so the balance catches up. Pause stops it. The player shows the station, the genre and the track title (or "track
 information unavailable"). When a guest song becomes due it starts when the station's current track ends,
-at the latest after 5 minutes, or at once if you press **Play the queued song now**. The station may play
-hour-long DJ mixes, which is why the 5-minute limit exists. Guests see "Radio fallback" on _Now playing_.
+at the latest after 4 minutes, or at once if you press **Play the queued song now**. The station may play
+hour-long DJ mixes, which is why the 4-minute limit exists. Guests see "Radio fallback" on _Now playing_.
 Radio tracks are not anyone's request and never use anyone's allowance; they can change the genre the
 queue sees as last played but never count toward a run. Stations are listed in `packages/config/src/radio.ts`.
 Only Bachata Sensual Radio is on; see [ADR 0023](/adr/0023-radio-fallback).

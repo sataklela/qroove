@@ -71,7 +71,7 @@ export async function buildApp(
           'https://i.ytimg.com',
         ],
         // Radio fallback: the browser plays the station's public listener URL directly (ADR 0023).
-        mediaSrc: ["'self'", 'blob:', 'https://s3.radio.co', 'https://*.radio.co'],
+        mediaSrc: ["'self'", 'blob:', 'data:', 'https://s3.radio.co', 'https://*.radio.co'],
         connectSrc: ["'self'", 'https://api.spotify.com', 'https://public.radio.co'],
         styleSrc: ["'self'", "'unsafe-inline'"],
         // Official players only (see ADR 0017); no audio ever passes through this server.

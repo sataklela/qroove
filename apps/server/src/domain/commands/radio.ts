@@ -25,6 +25,16 @@ interface LeaseInput {
 export const radioEnabled = (e: { radioFallback?: boolean | null }): boolean =>
   e.radioFallback ?? RADIO_DEFAULTS.enabledByDefault;
 
+/** Until when radio must wait after the event started, if nothing has played yet; else null. */
+export function radioHoldUntil(e: {
+  startedAt: number | null;
+  history: { lastStyle: string | null };
+}): number | null {
+  return e.startedAt !== null && e.history.lastStyle === null
+    ? e.startedAt + RADIO_DEFAULTS.startGraceMs
+    : null;
+}
+
 export function setRadioFallback(
   deps: Deps,
   input: CommandOpts & { eventId: string; adminSecret: string; enabled: boolean },
@@ -66,6 +76,10 @@ export function reportRadioStarted(
     const w = await loadWork(c);
     if (breakInProgress(w)) throw new DomainError('EVENT_NOT_ACTIVE');
     if (e.nowPlaying || e.reservation) throw new DomainError('STALE_VERSION');
+    const hold = radioHoldUntil(e);
+    if (hold !== null && c.now < hold) {
+      throw new DomainError('VALIDATION', 'Radio starts a few minutes after the event begins.');
+    }
     if (!rulesAt(e, c.now).enabledStyles.includes(station.genre)) {
       throw new DomainError('VALIDATION', 'This event does not allow that genre.');
     }

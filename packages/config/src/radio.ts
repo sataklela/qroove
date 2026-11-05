@@ -51,15 +51,20 @@ export const RADIO_STATIONS: readonly RadioStation[] = [
 ];
 
 export const RADIO_DEFAULTS = {
-  /** Off until the real-device checks in the plan have been done; the organiser can switch it on. */
-  enabledByDefault: false,
+  /** On for the pilot test; the organiser can still switch it off per event. */
+  enabledByDefault: true,
+  /** After the organiser presses Start, radio waits this long for a first guest song. */
+  startGraceMs: 5 * 60_000,
   /** First choice first. Event rules still decide which genres are allowed. */
   genrePriority: ['salsa', 'bachata', 'other', 'chacha'] as readonly GenreId[],
   statusPollMs: 10_000,
   /** The metadata is considered stale (warning only) when it has not answered for this long. */
   metadataStaleMs: 45_000,
-  /** A queued song waits at most this long for the radio track to end, then takes over. */
-  maxQueueWaitMs: 5 * 60_000,
+  /**
+   * A queued song waits at most this long for the radio track to end, then takes over. About one
+   * song, so a radio slot that fills a genre gap lasts roughly as long as the song it stands in for.
+   */
+  maxQueueWaitMs: 4 * 60_000,
   /** A failing station is not tried again for this long. */
   failureBackoffMs: 60_000,
 } as const;

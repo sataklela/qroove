@@ -17,6 +17,10 @@ import { fetchRadioStatus, radioTrackKey, type RadioStatus } from './radio';
 
 type Phase = 'idle' | 'connecting' | 'playing';
 
+/** 0.1 s of silence (8 kHz 8-bit mono WAV). */
+const SILENCE =
+  'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+
 const genreName = (g: string) => GENRES.find((x) => x.id === g)?.label ?? g;
 
 /**
@@ -62,6 +66,8 @@ export function RadioFallback({
   const [tick, setTick] = useState(0);
   /** The browser refused to start sound by itself: wait for a tap rather than trying again. */
   const [needsTap, setNeedsTap] = useState(false);
+  /** The start grace has run out (the server's `radioHoldUntil`, counted on this device's clock). */
+  const [graceOver, setGraceOver] = useState(false);
   const [waitingSince, setWaitingSince] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   /** Failures per station: first one retries at once, then the station rests for a minute. */
@@ -73,9 +79,33 @@ export function RadioFallback({
 
   const on = view.radioFallback;
   const onBreak = view.breaks.some((b) => b.actualStart !== null && b.actualEnd === null);
+  const holdUntil = view.radioHoldUntil;
+  const inGrace = holdUntil !== null && !graceOver;
   const canRun =
-    on && leaseHeld && view.state === 'ACTIVE' && !onBreak && !view.nowPlaying && !busy;
+    !inGrace && on && leaseHeld && view.state === 'ACTIVE' && !onBreak && !view.nowPlaying && !busy;
   const active = phase !== 'idle';
+
+  useEffect(() => {
+    if (holdUntil === null) return;
+    const id = setTimeout(() => setGraceOver(true), Math.max(0, holdUntil - view.serverNow));
+    return () => clearTimeout(id);
+  }, [holdUntil, view.serverNow]);
+
+  /** Plays a silent clip in a tap, so the browser lets this element start by itself later. */
+  async function armSound() {
+    const a = audio.current;
+    if (!a) return;
+    try {
+      a.src = SILENCE;
+      await a.play();
+      a.pause();
+      a.removeAttribute('src');
+      a.load();
+      onUnlocked();
+    } catch {
+      setMessage('This browser would not allow sound. Tap again.');
+    }
+  }
 
   const choice = useMemo(() => {
     const done = view.breaks.filter((b) => b.actualEnd !== null).length;
@@ -291,6 +321,7 @@ export function RadioFallback({
   }
 
   const waitedMs = waitingSince === null ? 0 : now - waitingSince;
+  const showArm = inGrace && on && leaseHeld && view.state === 'ACTIVE' && !unlocked;
   const showStart =
     canRun && !reservedId && phase === 'idle' && (!unlocked || needsTap || message !== null);
   if (view.state !== 'ACTIVE' && view.state !== 'PAUSED' && !on) return null;
@@ -342,6 +373,17 @@ export function RadioFallback({
         </div>
       ) : null}
       {phase === 'connecting' ? <p className="muted small">Connecting to the radio…</p> : null}
+      {showArm ? (
+        <div className="stack compact">
+          <p className="muted small">
+            If nobody adds a song in the first {Math.round(RADIO_DEFAULTS.startGraceMs / 60_000)}{' '}
+            minutes, the radio starts. Tap once now so this device is allowed to play it.
+          </p>
+          <button className="btn" onClick={() => void armSound()}>
+            Allow sound for the radio
+          </button>
+        </div>
+      ) : null}
       {showStart ? (
         <button className="btn primary" onClick={() => void start(true)}>
           Start radio

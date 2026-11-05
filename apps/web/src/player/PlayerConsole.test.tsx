@@ -59,6 +59,7 @@ const mkState = (over: { reserved?: boolean; playing?: boolean; epoch?: number |
     waitingReason: null,
     breaks: [],
     radioFallback: false,
+    radioHoldUntil: null,
     radio: null,
     queue: [
       { requestId: 'r1', title: 'Vivir Mi Vida', artist: 'Marc Anthony', durationMs: 240000 },
@@ -312,6 +313,8 @@ describe('PlayerConsole', () => {
 });
 
 describe('PlayerConsole radio fallback', () => {
+  const ready0 = () =>
+    waitFor(() => expect(calls.some((c) => c.url.endsWith('/player/claim'))).toBe(true));
   const radioState = (reserved: boolean) => {
     const st = mkState({ reserved });
     Object.assign(st.view, {
@@ -380,6 +383,19 @@ describe('PlayerConsole radio fallback', () => {
     await new Promise((r) => setTimeout(r, 300));
     expect(refused.mock.calls.length).toBeLessThanOrEqual(2);
     expect(await screen.findByRole('button', { name: 'Start radio' })).toBeInTheDocument();
+  });
+
+  it('waits out the start grace, offering a tap to allow sound first', async () => {
+    const st = radioState(false);
+    Object.assign(st.view, { serverNow: Date.now(), radioHoldUntil: Date.now() + 60 * 60_000 });
+    adminState = st;
+    open();
+    await ready0();
+    expect(
+      await screen.findByRole('button', { name: 'Allow sound for the radio' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start radio' })).toBeNull();
+    expect(radioCalls()).toHaveLength(0);
   });
 
   it('does not start radio while a guest song is waiting', async () => {

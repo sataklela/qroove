@@ -9,7 +9,7 @@ import type {
 } from '@qroove/contracts';
 import { radioStation } from '@qroove/config';
 import type { EventAggregate, RequestDoc } from '../db/types.js';
-import { radioEnabled } from '../domain/commands/radio.js';
+import { radioEnabled, radioHoldUntil } from '../domain/commands/radio.js';
 import { segmentIndexAt } from '../domain/history.js';
 import { sha256 } from '../domain/ids.js';
 
@@ -69,6 +69,7 @@ export function publicView(agg: EventAggregate, now: number): EventPublicView {
         : null,
     radioFallback: radioEnabled(e),
     radio: radioView(e, now),
+    radioHoldUntil: radioHoldUntil(e),
     waitingReason: e.waitingReason,
     runIndicator:
       last && cap !== null && e.history.runLength > 0

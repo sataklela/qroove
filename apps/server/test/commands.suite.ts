@@ -752,13 +752,17 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
       async function radioSetup() {
         const x = await setup();
         await cmd.setRadioFallback(x.deps, { ...x.admin, enabled: true });
+        x.deps.clock.advance(5 * 60_000 + 1); // past the start grace
         const p = await x.player();
         return { ...x, p };
       }
 
-      it('is off by default and refuses to start radio until the organiser switches it on', async () => {
-        const { deps, player } = await setup();
+      it('waits out the start grace, and refuses once the organiser switches it off', async () => {
+        const { deps, admin, player } = await setup();
         const p = await player();
+        await expectCode(cmd.reportRadioStarted(deps, { ...p.lease, ...B }), 'VALIDATION'); // grace
+        deps.clock.advance(5 * 60_000 + 1);
+        await cmd.setRadioFallback(deps, { ...admin, enabled: false });
         await expectCode(
           cmd.reportRadioStarted(deps, { ...p.lease, ...B, title: null }),
           'VALIDATION',
@@ -822,7 +826,7 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
 
       it('never holds back a guest song of the genre the radio is playing, even with a cap of 1', async () => {
         const x = await setup({ masterRunCap: 1 });
-        await cmd.setRadioFallback(x.deps, { ...x.admin, enabled: true });
+        x.deps.clock.advance(5 * 60_000 + 1);
         const p = await x.player();
         await cmd.reportRadioStarted(x.deps, { ...p.lease, ...B });
         const g = await guest(x.deps, x.ev.eventId);
@@ -834,6 +838,23 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
           lastStyle: 'bachata',
           runLength: 1,
         });
+      });
+
+      it('fills a genre gap: queued salsa only, cap 1, so radio bachata releases the next salsa', async () => {
+        const x = await setup({ masterRunCap: 1 });
+        x.deps.clock.advance(5 * 60_000 + 1);
+        const g = await guest(x.deps, x.ev.eventId);
+        for (const n of [1, 2, 3]) await x.submit(g, n, 'salsa');
+        const p = await x.player();
+        const first = await p.start();
+        await p.finish(first);
+        let e = (await snap(x.deps, x.ev.eventId)).event;
+        expect(e.reservation).toBeNull(); // salsa again would break the cap: the room would be silent
+        await cmd.reportRadioStarted(x.deps, { ...p.lease, ...B });
+        e = (await snap(x.deps, x.ev.eventId)).event;
+        expect(e.reservation).not.toBeNull(); // the gap is filled and the next salsa is due
+        await p.start();
+        expect((await snap(x.deps, x.ev.eventId)).event.radio).toBeNull();
       });
 
       it('does not touch participant quotas and closes on pause, takeover and end', async () => {

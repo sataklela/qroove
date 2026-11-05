@@ -95,6 +95,8 @@ export const EventPublicView = z.object({
   /** The organiser's radio fallback switch, and the radio track on air, if any. */
   radioFallback: z.boolean(),
   radio: RadioView.nullable(),
+  /** Radio waits for a first guest song until this time (ms), when nothing has played yet. */
+  radioHoldUntil: z.number().int().nullable(),
   waitingReason: z.string().nullable(),
   /** Current run of one style against its cap, so attendees can see why a style may be held. */
   runIndicator: z
