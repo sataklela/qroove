@@ -56,7 +56,7 @@ export function publicView(agg: EventAggregate, now: number): EventPublicView {
     endAt: e.endAt,
     serverNow: now,
     version: e.version,
-    rules: e.state === 'DRAFT' ? null : e.rules,
+    rules: e.rules,
     nowPlaying:
       np && e.nowPlaying
         ? {

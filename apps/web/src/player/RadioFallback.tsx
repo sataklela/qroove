@@ -321,7 +321,7 @@ export function RadioFallback({
   }
 
   const waitedMs = waitingSince === null ? 0 : now - waitingSince;
-  const showArm = inGrace && on && leaseHeld && view.state === 'ACTIVE' && !unlocked;
+  const showArm = (inGrace || !active) && on && leaseHeld && view.state === 'ACTIVE' && !unlocked;
   const showStart =
     canRun && !reservedId && phase === 'idle' && (!unlocked || needsTap || message !== null);
   if (view.state !== 'ACTIVE' && view.state !== 'PAUSED' && !on) return null;
@@ -376,8 +376,8 @@ export function RadioFallback({
       {showArm ? (
         <div className="stack compact">
           <p className="muted small">
-            If nobody adds a song in the first {Math.round(RADIO_DEFAULTS.startGraceMs / 60_000)}{' '}
-            minutes, the radio starts. Tap once now so this device is allowed to play it.
+            When no guest song is ready, the radio starts by itself. Tap once now so this device is
+            allowed to play it.
           </p>
           <button className="btn" onClick={() => void armSound()}>
             Allow sound for the radio

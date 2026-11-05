@@ -65,7 +65,27 @@ export function recompute(w: Work, now: number): void {
   if (!live) {
     e.reservation = null;
     e.waitingReason = null;
-    e.preview = { revision: e.version + 1, items: [], stoppedReason: 'EXHAUSTED', computedAt: now };
+    // Before the organiser starts, songs already submitted are listed in the order they came in,
+    // with no predicted time. Nothing is reserved or played until the event starts.
+    const early =
+      e.state === 'DRAFT'
+        ? [...w.requests.values()]
+            .filter((r) => POOL_STATES.has(r.state))
+            .sort((a, b) => a.acceptedSeq - b.acceptedSeq)
+            .map((r, i) => ({
+              requestId: r.id,
+              position: i + 1,
+              predictedStartMs: null,
+              uncertain: true,
+              overflow: false,
+            }))
+        : [];
+    e.preview = {
+      revision: e.version + 1,
+      items: early,
+      stoppedReason: 'EXHAUSTED',
+      computedAt: now,
+    };
     return;
   }
 

@@ -162,11 +162,20 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
       );
       await cmd.endEvent(deps, admin);
       await expectCode(submit(a, 1), 'EVENT_ENDED');
+    });
+
+    it('accepts songs before the event starts, lists them, and plays them only after Start', async () => {
       const draft = await setup({}, false);
-      await expectCode(
-        draft.submit(await guest(draft.deps, draft.ev.eventId), 1),
-        'EVENT_NOT_ACTIVE',
-      );
+      const g = await guest(draft.deps, draft.ev.eventId);
+      await draft.submit(g, 1);
+      const before = (await snap(draft.deps, draft.ev.eventId)).event;
+      expect(before.state).toBe('DRAFT');
+      expect(before.reservation).toBeNull();
+      expect(before.nowPlaying).toBeNull();
+      expect(before.preview.items).toHaveLength(1);
+      await cmd.startEvent(draft.deps, draft.admin);
+      const after = (await snap(draft.deps, draft.ev.eventId)).event;
+      expect(after.reservation).not.toBeNull();
     });
 
     it('plays oldest first within the genre cap, updates history on start, and blocks replays', async () => {
@@ -757,11 +766,10 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
         return { ...x, p };
       }
 
-      it('waits out the start grace, and refuses once the organiser switches it off', async () => {
+      it('starts at once when the event begins, and refuses once the organiser switches it off', async () => {
         const { deps, admin, player } = await setup();
         const p = await player();
-        await expectCode(cmd.reportRadioStarted(deps, { ...p.lease, ...B }), 'VALIDATION'); // grace
-        deps.clock.advance(5 * 60_000 + 1);
+        await cmd.reportRadioStarted(deps, { ...p.lease, ...B }); // no grace
         await cmd.setRadioFallback(deps, { ...admin, enabled: false });
         await expectCode(
           cmd.reportRadioStarted(deps, { ...p.lease, ...B, title: null }),

@@ -53,8 +53,11 @@ export const RADIO_STATIONS: readonly RadioStation[] = [
 export const RADIO_DEFAULTS = {
   /** On for the pilot test; the organiser can still switch it off per event. */
   enabledByDefault: true,
-  /** After the organiser presses Start, radio waits this long for a first guest song. */
-  startGraceMs: 5 * 60_000,
+  /**
+   * After the organiser presses Start, radio waits this long for a first guest song. Zero: radio
+   * starts at once unless a queued song is ready (a ready song always wins).
+   */
+  startGraceMs: 0,
   /** First choice first. Event rules still decide which genres are allowed. */
   genrePriority: ['salsa', 'bachata', 'other', 'chacha'] as readonly GenreId[],
   statusPollMs: 10_000,

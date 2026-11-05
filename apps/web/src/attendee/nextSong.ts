@@ -41,7 +41,7 @@ export function nextSong(
   if (view.state === 'DRAFT')
     return none(
       'The event has not started yet',
-      'Songs can be added once the organiser starts it.',
+      'You can add songs now; they play once the organiser starts it.',
     );
 
   const active = (mine?.requests ?? []).filter((r) => WAITING.has(r.state));

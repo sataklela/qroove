@@ -44,7 +44,8 @@ export function parsePlaylistUrl(raw: string): Target {
   if (['www.youtube.com', 'youtube.com', 'music.youtube.com', 'm.youtube.com'].includes(host)) {
     const list = u.searchParams.get('list');
     if (u.pathname !== '/playlist' && u.pathname !== '/watch') throw bad();
-    if (!list || !ID.test(list)) throw bad('Paste a Spotify playlist link (open.spotify.com/playlist/…).');
+    if (!list || !ID.test(list))
+      throw bad('Paste a Spotify playlist link (open.spotify.com/playlist/…).');
     // A song opened in YouTube Music carries its generated radio mix (RD…): the link means that song.
     if (u.searchParams.get('v') && list.startsWith('RD')) throw bad();
     // YouTube Music playlists are ordinary YouTube playlists underneath.

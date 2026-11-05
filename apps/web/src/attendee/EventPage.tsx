@@ -107,7 +107,7 @@ function Loaded({ slug, eventId }: { slug: string; eventId: string }) {
   const status = ended
     ? 'This event has ended.'
     : view.state === 'DRAFT'
-      ? 'Not started yet.'
+      ? 'Not started yet. Add your songs now; they play once the organiser starts the event.'
       : view.state === 'PAUSED' || view.state === 'TRANSFERRING'
         ? 'Session paused.'
         : null;

@@ -30,7 +30,7 @@ export function radioHoldUntil(e: {
   startedAt: number | null;
   history: { lastStyle: string | null };
 }): number | null {
-  return e.startedAt !== null && e.history.lastStyle === null
+  return RADIO_DEFAULTS.startGraceMs > 0 && e.startedAt !== null && e.history.lastStyle === null
     ? e.startedAt + RADIO_DEFAULTS.startGraceMs
     : null;
 }

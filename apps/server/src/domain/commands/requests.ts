@@ -69,7 +69,7 @@ export interface SubmitInput extends CommandOpts {
   track: TrackInput;
 }
 
-const OPEN_FOR_SUBMIT = new Set(['ACTIVE', 'PAUSED']);
+const OPEN_FOR_SUBMIT = new Set(['DRAFT', 'ACTIVE', 'PAUSED']);
 
 export function submitRequest(deps: Deps, input: SubmitInput) {
   return runCommand(deps, input.eventId, input, async (c) => {
