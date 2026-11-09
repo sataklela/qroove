@@ -25,7 +25,7 @@ constant are needed.
    | `FIREBASE_SERVICE_ACCOUNT_B64` | New key, see [Firebase](/runbook/firebase); delete the old key                                                                                                                       |
    | `CRON_SECRET`                  | New random value; update any caller of `/api/internal/purge`                                                                                                                         |
    | Spotify client secret          | Rotate in the Spotify developer dashboard; update `SPOTIFY_CLIENT_SECRET`. The redirect URI is `https://qroove.sataklela.com/api/spotify/callback`                                   |
-   | Google OAuth client secret     | Rotate in Google Cloud Console → Credentials; update `GOOGLE_CLIENT_SECRET`. The redirect URI is `https://qroove.sataklela.com/api/google/callback` (see the Google sign-in runbook) |
+   | Google OAuth client secret     | Rotate in Google Cloud Console → Credentials; update `GOOGLE_OAUTH_CLIENT_SECRET`. The redirect URI is `https://qroove.sataklela.com/api/google/callback` (see the Google sign-in runbook) |
 
 6. **Verify.** Run the smoke test in [Deploy](/runbook/deploy) and check `railway logs` for the start-up
    `retention purge` line.

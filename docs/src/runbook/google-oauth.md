@@ -34,7 +34,7 @@ Credentials → Create credentials → OAuth client ID → **Web application**.
 ## 4. Railway
 
 ```
-railway variables --service web --set GOOGLE_CLIENT_ID=... --set GOOGLE_CLIENT_SECRET=...
+railway variables --service web --set GOOGLE_OAUTH_CLIENT_ID=... --set GOOGLE_OAUTH_CLIENT_SECRET=...
 railway up --ci --service web
 ```
 
@@ -46,4 +46,4 @@ Publish the app (Audience → Publish) and submit for verification. `youtube.rea
 
 ## Rotating
 
-Create a new secret on the client, update `GOOGLE_CLIENT_SECRET`, redeploy, then delete the old secret.
+Create a new secret on the client, update `GOOGLE_OAUTH_CLIENT_SECRET`, redeploy, then delete the old secret.

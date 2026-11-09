@@ -143,8 +143,8 @@ export async function buildApp(
   registerGoogleAuth(app, {
     base: env.PUBLIC_BASE_URL.replace(/\/$/, ''),
     creds:
-      env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
-        ? { id: env.GOOGLE_CLIENT_ID, secret: env.GOOGLE_CLIENT_SECRET }
+      env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_CLIENT_SECRET
+        ? { id: env.GOOGLE_OAUTH_CLIENT_ID, secret: env.GOOGLE_OAUTH_CLIENT_SECRET }
         : undefined,
     cookieSecret: env.COOKIE_SECRET,
     doFetch,

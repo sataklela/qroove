@@ -16,7 +16,7 @@ async function setup(configured = true) {
     parseEnv({
       NODE_ENV: 'test',
       COOKIE_SECRET: 'x'.repeat(32),
-      ...(configured ? { GOOGLE_CLIENT_ID: 'gid', GOOGLE_CLIENT_SECRET: 'gsecret' } : {}),
+      ...(configured ? { GOOGLE_OAUTH_CLIENT_ID: 'gid', GOOGLE_OAUTH_CLIENT_SECRET: 'gsecret' } : {}),
     }),
     {
       fetch: async (url, init) => {
