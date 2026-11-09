@@ -209,7 +209,7 @@ const clock = (text: string): number | null => {
 };
 
 /** "Artist - Title (Official Video)" → artist/title, with the usual video decoration removed. */
-function cleanVideoTitle(
+export function cleanVideoTitle(
   raw: string,
   channel: string | null,
 ): { title: string; artist: string | null } {

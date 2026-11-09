@@ -124,6 +124,14 @@ export const api = {
     ),
   myPlaylist: (id: string) =>
     request<{ tracks: PlaylistSong[] }>('GET', `/api/spotify/me/playlists/${id}`),
+  myYoutubePlaylists: () =>
+    request<{
+      available: boolean;
+      signedIn: boolean;
+      playlists: Array<{ id: string; name: string }>;
+    }>('GET', '/api/google/me/playlists'),
+  myYoutubePlaylist: (id: string) =>
+    request<{ tracks: PlaylistSong[] }>('GET', `/api/google/me/playlists/${id}`),
   youtubePlaylists: (channel: string) =>
     request<{ playlists: Array<{ id: string; name: string }> }>(
       'GET',

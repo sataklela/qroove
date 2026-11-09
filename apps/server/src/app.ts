@@ -10,6 +10,7 @@ import { systemClock, type Clock } from './domain/clock.js';
 import { randomIds } from './domain/ids.js';
 import { registerErrors } from './api/errors.js';
 import { registerRoutes } from './api/routes.js';
+import { registerGoogleAuth } from './api/googleAuth.js';
 import { registerSpotifyAuth } from './api/spotifyAuth.js';
 import { parseEnv, type Env } from './env.js';
 import { runPurge, schedulePurge, secretMatches } from './maintenance/purge.js';
@@ -131,6 +132,20 @@ export async function buildApp(
   registerSpotifyAuth(app, {
     base: env.PUBLIC_BASE_URL.replace(/\/$/, ''),
     creds: spotify,
+    cookieSecret: env.COOKIE_SECRET,
+    doFetch,
+    sec,
+    limit: (key, max, windowMs) =>
+      env.RATE_LIMIT_OFF === '1' && env.NODE_ENV !== 'production'
+        ? undefined
+        : limiter.check(key, max, windowMs),
+  });
+  registerGoogleAuth(app, {
+    base: env.PUBLIC_BASE_URL.replace(/\/$/, ''),
+    creds:
+      env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+        ? { id: env.GOOGLE_CLIENT_ID, secret: env.GOOGLE_CLIENT_SECRET }
+        : undefined,
     cookieSecret: env.COOKIE_SECRET,
     doFetch,
     sec,

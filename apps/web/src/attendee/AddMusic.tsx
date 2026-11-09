@@ -203,6 +203,7 @@ export function AddMusic({
         }}
       />
       <YouTubeBrowse
+        slug={view.slug}
         addedIds={addedIds}
         onPlaylist={(tracks, id) => {
           setLoadedPlaylist(id);

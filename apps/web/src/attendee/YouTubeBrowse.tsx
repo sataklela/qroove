@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError, type PlaylistSong } from '../shared/api';
 
 const KEY = 'qroove.ytChannel';
@@ -11,13 +11,16 @@ const read = () => {
 };
 
 /**
- * "My YouTube playlist": paste a channel link or @handle, pick one of its public playlists. No
- * sign-in, so private playlists are not offered. Songs then load like any pasted playlist link.
+ * "My YouTube playlist". Signed in with Google (read-only YouTube access), the guest's own playlists
+ * are listed, private ones and Liked music included. Without a login, a channel link or @handle
+ * lists that channel's public playlists instead.
  */
 export function YouTubeBrowse({
+  slug,
   onPlaylist,
   addedIds = [],
 }: {
+  slug: string;
   onPlaylist: (tracks: PlaylistSong[], playlistId: string) => void;
   addedIds?: string[];
 }) {
@@ -27,6 +30,29 @@ export function YouTubeBrowse({
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const added = new Set(addedIds);
+  const [mine, setMine] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [available, setAvailable] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .myYoutubePlaylists()
+      .then((r) => {
+        if (!live) return;
+        setAvailable(r.available);
+        if (r.signedIn) setMine(r.playlists);
+      })
+      .catch((e: unknown) => {
+        if (live && e instanceof ApiError) setProblem(`${e.message} ${e.action}`);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+  const [loginProblem] = useState(() => {
+    const g = new URLSearchParams(window.location.search).get('google');
+    return g ? 'The Google login did not finish. You can still paste a playlist link.' : null;
+  });
 
   const fail = (e: unknown, fallback: string) =>
     setProblem(e instanceof ApiError ? `${e.message} ${e.action}` : fallback);
@@ -56,7 +82,9 @@ export function YouTubeBrowse({
     setBusy(id);
     setProblem(null);
     try {
-      const { tracks } = await api.resolvePlaylist(`https://www.youtube.com/playlist?list=${id}`);
+      const { tracks } = mine?.some((p) => p.id === id)
+        ? await api.myYoutubePlaylist(id)
+        : await api.resolvePlaylist(`https://www.youtube.com/playlist?list=${id}`);
       setOpen(false);
       onPlaylist(tracks, id);
     } catch (e) {
@@ -70,28 +98,41 @@ export function YouTubeBrowse({
     <>
       <details className="pl-picker" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary className="btn pill">My YouTube playlist</summary>
-        <form
-          className="row"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (channel.trim().length >= 3) void find();
-          }}
-        >
-          <input
-            type="text"
-            aria-label="Your YouTube channel link or @handle"
-            placeholder="Channel link or @handle"
-            value={channel}
-            onChange={(e) => setChannel(e.target.value)}
-          />
-          <button type="submit" className="btn" disabled={busy !== null}>
-            {busy === 'find' ? 'Looking…' : 'Find'}
-          </button>
-        </form>
-        <p className="muted small">Public playlists only. Private ones: paste the link instead.</p>
-        {lists?.length ? (
+        {mine === null && available ? (
+          <p className="muted small">
+            <a href={`/api/google/login?return=${encodeURIComponent(`/e/${slug}`)}`}>
+              Log in with Google
+            </a>{' '}
+            to use your own playlists, private ones too. We only get read-only access to your
+            playlists.
+          </p>
+        ) : null}
+        {mine === null ? (
+          <form
+            className="row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (channel.trim().length >= 3) void find();
+            }}
+          >
+            <input
+              type="text"
+              aria-label="Your YouTube channel link or @handle"
+              placeholder="Channel link or @handle"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+            />
+            <button type="submit" className="btn" disabled={busy !== null}>
+              {busy === 'find' ? 'Looking…' : 'Find'}
+            </button>
+          </form>
+        ) : null}
+        {mine === null ? (
+          <p className="muted small">Without logging in: public playlists of a channel only.</p>
+        ) : null}
+        {(mine ?? lists)?.length ? (
           <ul className="search-results">
-            {lists.map((p) =>
+            {(mine ?? lists ?? []).map((p) =>
               added.has(p.id) ? (
                 <li key={p.id}>
                   <button type="button" className="btn ghost result added" disabled>
@@ -117,9 +158,9 @@ export function YouTubeBrowse({
           </ul>
         ) : null}
       </details>
-      {problem ? (
+      {(problem ?? loginProblem) ? (
         <p className="error small" role="alert">
-          {problem}
+          {problem ?? loginProblem}
         </p>
       ) : null}
     </>

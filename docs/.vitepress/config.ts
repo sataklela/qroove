@@ -91,6 +91,7 @@ export default defineConfig({
           { text: '0021 UI overhaul', link: '/adr/0021-ui-overhaul' },
           { text: '0022 YouTube fallback playback', link: '/adr/0022-youtube-fallback-playback' },
           { text: '0023 Radio fallback', link: '/adr/0023-radio-fallback' },
+          { text: '0024 Google YouTube login', link: '/adr/0024-google-youtube-login' },
         ],
       },
       {
