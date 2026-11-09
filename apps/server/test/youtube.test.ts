@@ -5,6 +5,7 @@ import { MemoryRepository } from '../src/db/memory/index.js';
 import type { FetchLike } from '../src/ingestion/fetch.js';
 import {
   isoDurationMs,
+  parseChannelRef,
   MISS_TTL_MS,
   rankCandidates,
   YouTubeMatcher,
@@ -167,5 +168,41 @@ describe('GET /api/events/:id/player/youtube/:rid', () => {
     const r = await t.api.admin('GET', t.id, `/player/youtube/${t.rid}`);
     expect(r.status).toBe(200);
     expect(r.json.videoIds.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('channel playlists', () => {
+  it('reads links, handles and ids, and refuses other sites', () => {
+    expect(parseChannelRef('@salsa_fan')).toEqual({ kind: 'handle', value: '@salsa_fan' });
+    expect(parseChannelRef('https://www.youtube.com/@salsa_fan/playlists')).toEqual({
+      kind: 'handle',
+      value: '@salsa_fan',
+    });
+    expect(parseChannelRef('youtube.com/channel/UCabcdefghijklmnopqrstuv')).toEqual({
+      kind: 'id',
+      value: 'UCabcdefghijklmnopqrstuv',
+    });
+    expect(parseChannelRef('https://evil.example/@salsa_fan')).toBeNull();
+    expect(parseChannelRef('hello')).toBeNull();
+  });
+
+  it('lists a channel’s playlists, and gives null without a key', async () => {
+    const calls: string[] = [];
+    const f: FetchLike = async (url) => {
+      calls.push(url);
+      const body = url.includes('/channels')
+        ? { items: [{ id: 'UCabcdefghijklmnopqrstuv' }] }
+        : { items: [{ id: 'PL1', snippet: { title: 'Salsa night' } }, { id: 'PL2' }] };
+      return new Response(JSON.stringify(body), {
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    const m = new YouTubeMatcher(f, 'key', new MemoryRepository(), () => 0);
+    expect(await m.channelPlaylists({ kind: 'handle', value: '@salsa_fan' })).toEqual([
+      { id: 'PL1', name: 'Salsa night' },
+    ]);
+    expect(calls[0]).toContain('forHandle=%40salsa_fan');
+    const none = new YouTubeMatcher(f, undefined, new MemoryRepository(), () => 0);
+    expect(await none.channelPlaylists({ kind: 'handle', value: '@x' })).toBeNull();
   });
 });

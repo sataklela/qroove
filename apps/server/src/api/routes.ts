@@ -32,6 +32,7 @@ import {
   STYLE_PRESETS,
   maxSubmissionLimit,
 } from '@qroove/config';
+import { parseChannelRef } from '../ingestion/providers/youtube.js';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -161,6 +162,27 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
     limit(`spotify-search:${req.ip}`, 30, MINUTE);
     const { q } = parse(z.object({ q: z.string().trim().min(2).max(100) }), req.query);
     return { tracks: await ingestion.searchSongs(q) };
+  });
+
+  // A person's own public YouTube playlists, found from their channel link or @handle. The songs
+  // themselves then load through `resolve-playlist`, exactly like a pasted playlist link.
+  const UNAVAILABLE = 'YouTube would not list playlists right now. Paste a playlist link instead.';
+  app.get('/api/youtube/playlists', async (req) => {
+    limit(`youtube-playlists:${req.ip}`, 20, MINUTE);
+    const { channel } = parse(z.object({ channel: z.string().trim().min(3).max(200) }), req.query);
+    const ref = parseChannelRef(channel);
+    if (!ref) {
+      throw new DomainError(
+        'VALIDATION',
+        'That does not look like a YouTube channel. Paste your channel link or @handle.',
+      );
+    }
+    const playlists = await youtube.channelPlaylists(ref).catch((e: unknown) => {
+      if (e instanceof DomainError) throw new DomainError('METADATA_UNAVAILABLE', UNAVAILABLE);
+      throw e;
+    });
+    if (playlists === null) throw new DomainError('METADATA_UNAVAILABLE', UNAVAILABLE);
+    return { playlists };
   });
 
   // ---- creating events ---------------------------------------------------------------------

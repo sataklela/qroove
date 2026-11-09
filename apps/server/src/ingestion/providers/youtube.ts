@@ -78,6 +78,46 @@ export function isoDurationMs(iso: string): number {
   return ((Number(m[1] ?? 0) * 60 + Number(m[2] ?? 0)) * 60 + Number(m[3] ?? 0)) * 1000;
 }
 
+/** What a person typed to say whose playlists they want: a channel link, an @handle or a channel id. */
+export type ChannelRef =
+  | { kind: 'handle'; value: string }
+  | { kind: 'id'; value: string }
+  | { kind: 'user'; value: string };
+
+/** Pure: turns a pasted channel link, "@handle" or "UC…" id into something the API can look up. */
+export function parseChannelRef(input: string): ChannelRef | null {
+  const text = input.trim();
+  if (/^UC[\w-]{22}$/.test(text)) return { kind: 'id', value: text };
+  if (/^@[\w.-]{3,30}$/.test(text)) return { kind: 'handle', value: text };
+  let url: URL;
+  try {
+    url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`);
+  } catch {
+    return null;
+  }
+  if (!/^(www\.|m\.|music\.)?youtube\.com$/i.test(url.hostname)) return null;
+  const [first, second] = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  if (first?.startsWith('@') && /^@[\w.-]{3,30}$/.test(first))
+    return { kind: 'handle', value: first };
+  if (first === 'channel' && second && /^UC[\w-]{22}$/.test(second))
+    return { kind: 'id', value: second };
+  if (first === 'user' && second && /^[\w.-]{1,40}$/.test(second))
+    return { kind: 'user', value: second };
+  return null;
+}
+
+export interface ChannelPlaylist {
+  id: string;
+  name: string;
+}
+
+interface ChannelsResponse {
+  items?: Array<{ id?: string }>;
+}
+interface PlaylistsResponse {
+  items?: Array<{ id?: string; snippet?: { title?: string } }>;
+}
+
 interface SearchResponse {
   items?: Array<{ id?: { videoId?: string } }>;
 }
@@ -152,5 +192,38 @@ export class YouTubeMatcher {
       channel: v.snippet?.channelTitle ?? '',
       durationMs: isoDurationMs(v.contentDetails?.duration ?? ''),
     }));
+  }
+
+  /**
+   * The public playlists of a YouTube channel (a person's own, if they paste their channel link).
+   * Needs no sign-in, so private playlists and the "Liked music" list are not available; both
+   * calls cost one quota unit each. Returns null when no key is set.
+   */
+  async channelPlaylists(ref: ChannelRef): Promise<ChannelPlaylist[] | null> {
+    if (!this.apiKey) return null;
+    const lookup = new URLSearchParams({ part: 'id', key: this.apiKey });
+    lookup.set(
+      ref.kind === 'handle' ? 'forHandle' : ref.kind === 'user' ? 'forUsername' : 'id',
+      ref.value,
+    );
+    const channel = (await fetchJson(
+      this.doFetch,
+      `https://www.googleapis.com/youtube/v3/channels?${lookup}`,
+    )) as ChannelsResponse;
+    const channelId = channel.items?.[0]?.id;
+    if (!channelId) return [];
+    const list = new URLSearchParams({
+      part: 'snippet',
+      channelId,
+      maxResults: '50',
+      key: this.apiKey,
+    });
+    const found = (await fetchJson(
+      this.doFetch,
+      `https://www.googleapis.com/youtube/v3/playlists?${list}`,
+    )) as PlaylistsResponse;
+    return (found.items ?? []).flatMap((p) =>
+      p.id && p.snippet?.title ? [{ id: p.id, name: p.snippet.title }] : [],
+    );
   }
 }

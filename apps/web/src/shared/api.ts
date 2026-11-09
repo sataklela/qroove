@@ -124,6 +124,11 @@ export const api = {
     ),
   myPlaylist: (id: string) =>
     request<{ tracks: PlaylistSong[] }>('GET', `/api/spotify/me/playlists/${id}`),
+  youtubePlaylists: (channel: string) =>
+    request<{ playlists: Array<{ id: string; name: string }> }>(
+      'GET',
+      `/api/youtube/playlists?channel=${encodeURIComponent(channel)}`,
+    ),
   submitBatch: (
     eventId: string,
     creds: Creds,

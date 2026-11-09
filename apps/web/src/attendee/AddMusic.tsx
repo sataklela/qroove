@@ -5,6 +5,7 @@ import { api, ApiError, type Creds, type PlaylistSong } from '../shared/api';
 import { shortGenreLabel, styleBoxVars } from '../shared/Genre';
 import { PlaylistInput } from '../shared/PlaylistInput';
 import { SpotifyBrowse } from './SpotifyBrowse';
+import { YouTubeBrowse } from './YouTubeBrowse';
 import { SongList, type ListSong } from '../shared/SongList';
 
 /** The most one request may carry; the rest can be added afterwards. */
@@ -195,6 +196,17 @@ export function AddMusic({
           setLoadedPlaylist(id);
           onTracks('music', tracks);
           // Once the menu has closed and the list is drawn, bring the loaded songs into view.
+          setTimeout(
+            () => listRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }),
+            50,
+          );
+        }}
+      />
+      <YouTubeBrowse
+        addedIds={addedIds}
+        onPlaylist={(tracks, id) => {
+          setLoadedPlaylist(id);
+          onTracks('music', tracks);
           setTimeout(
             () => listRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }),
             50,

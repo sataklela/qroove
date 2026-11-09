@@ -219,3 +219,9 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 - **Not verified / not done:** any real-browser or phone playback (iOS, Android, Bluetooth), the CSP in a real browser, station-to-station switching (only one station), AzuraCast/ICY adapters, warm standby, crossfade, strict-alignment mode, offset calibration, a 2-hour rehearsal, Cha-cha and Other stations.
 - Radio is on by default for the test; set `enabledByDefault: false` in `packages/config/src/radio.ts` to turn it off. Not deployed.
 - Tests (Firestore emulator suite also passes, 54): config 6, server +8 (6 command-suite on memory, 2 history), web +4 radio and +3 parser.
+
+### Guest YouTube playlists (2026-11-09)
+
+- "My YouTube playlist" under _Add music_: channel link / @handle → public playlists (`GET /api/youtube/playlists`, `YouTubeMatcher.channelPlaylists`, `parseChannelRef`) → songs via the existing `resolve-playlist` scraper. Reuses `YOUTUBE_API_KEY`; no Google OAuth, so private playlists and Liked music are out. Tests: server +2, typecheck and lint clean.
+- **Not verified:** the live YouTube Data API call (the key must be set on Railway; unit tests use a fake fetch), and the UI on a phone. Not deployed or committed.
+- **Option if guests need private playlists:** Google OAuth (`youtube.readonly`) like the Spotify guest login; needs a Google Cloud OAuth client and consent-screen verification, so it was not done.
