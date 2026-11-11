@@ -166,8 +166,12 @@ export async function buildApp(
       now: () => clock.now(),
       playlists: {
         ...STARTER_PLAYLISTS,
-        ...(env.STARTER_PLAYLIST_SALSA ? { salsa: env.STARTER_PLAYLIST_SALSA } : {}),
-        ...(env.STARTER_PLAYLIST_BACHATA ? { bachata: env.STARTER_PLAYLIST_BACHATA } : {}),
+        ...(env.STARTER_PLAYLIST_SALSA
+          ? { salsa: [env.STARTER_PLAYLIST_SALSA], salsa_nl: [] }
+          : {}),
+        ...(env.STARTER_PLAYLIST_BACHATA
+          ? { bachata: [env.STARTER_PLAYLIST_BACHATA], bachata_nl: [] }
+          : {}),
       },
     }),
     youtube: new YouTubeMatcher(doFetch, env.YOUTUBE_API_KEY, repo, () => clock.now()),

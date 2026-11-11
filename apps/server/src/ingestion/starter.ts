@@ -1,4 +1,11 @@
-import { GENRES, STARTER_PER_GENRE, STARTER_PLAYLISTS, type GenreId } from '@qroove/config';
+import {
+  GENRES,
+  STARTER_PER_GENRE,
+  STARTER_PLAYLISTS,
+  genreOf,
+  type GenreId,
+  type StyleId as ConfigStyle,
+} from '@qroove/config';
 import type { StyleId } from '@qroove/contracts';
 import type { SeedSong } from '../domain/draft.js';
 import { safeSourceUrl } from './parseLink.js';
@@ -19,7 +26,7 @@ export interface StarterSource {
 export function createStarter(opts: {
   resolvePlaylist: (url: string) => Promise<Playlist>;
   now: () => number;
-  playlists?: Partial<Record<GenreId, string>>;
+  playlists?: Partial<Record<ConfigStyle, readonly string[]>>;
   perGenre?: number;
 }): StarterSource {
   const links = opts.playlists ?? STARTER_PLAYLISTS;
@@ -42,25 +49,29 @@ export function createStarter(opts: {
     async pick(styles, rand, maxMs) {
       const lists: SeedSong[][] = [];
       for (const g of GENRES) {
-        const url = links[g.id];
-        // The genre's own (Latin) style carries the id of the genre.
-        const style = styles.find((s) => s === g.id);
-        if (!url || !style) continue;
-        const tracks = [...(await load(url))];
-        // Fisher–Yates, so each event starts with a different few.
-        for (let i = tracks.length - 1; i > 0; i--) {
-          const j = Math.floor(rand() * (i + 1));
-          [tracks[i], tracks[j]] = [tracks[j]!, tracks[i]!];
+        // Every enabled style of the genre contributes its own lists; they are mixed together.
+        const pool: SeedSong[] = [];
+        for (const style of styles) {
+          if (genreOf(style as ConfigStyle) !== (g.id as GenreId)) continue;
+          for (const url of links[style as ConfigStyle] ?? []) {
+            for (const t of await load(url)) {
+              pool.push({
+                title: t.title,
+                artist: t.artist,
+                durationMs: t.durationMs,
+                sourceUrl: safeSourceUrl(t.sourceUrl),
+                style,
+              });
+            }
+          }
         }
-        lists.push(
-          capPlaytime(tracks, Infinity, perGenre).map((t) => ({
-            title: t.title,
-            artist: t.artist,
-            durationMs: t.durationMs,
-            sourceUrl: safeSourceUrl(t.sourceUrl),
-            style,
-          })),
-        );
+        if (pool.length === 0) continue;
+        // Fisher–Yates, so each event starts with a different few.
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(rand() * (i + 1));
+          [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+        }
+        lists.push(capPlaytime(pool, Infinity, perGenre));
       }
       return capPlaytime(interleave(lists), maxMs);
     },
