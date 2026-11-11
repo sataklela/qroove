@@ -7,7 +7,7 @@ Qroove needs no account. This page says what is stored and for how long.
 | Data                                            | Why                                      | Notes                                       |
 | ----------------------------------------------- | ---------------------------------------- | ------------------------------------------- |
 | A random participant id and a hash of its token | So you can see and remove your own songs | The token itself lives only in your browser |
-| Name (required to join)                         | Shows the organiser who added each song  | Not unique; any name you choose             |
+| Codename (given when the page opens)            | Shows the organiser who added each song  | Two random words; you type nothing          |
 | Songs you request (title, artist, style, link)  | To run the queue                         | Link tracking parameters are stripped       |
 | Audit records                                   | To resolve disputes                      | Actions and ids; never secrets              |
 | Your IP address                                 | Rate limiting, in server memory only     | Not written to the database                 |

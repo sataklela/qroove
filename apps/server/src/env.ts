@@ -21,6 +21,9 @@ const schema = z.object({
   GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
   /** YouTube Data API v3 key (restricted to that API); without it songs play only via Spotify. */
   YOUTUBE_API_KEY: z.string().optional(),
+  /** Override the house playlists of `packages/config` (starter songs, ADR 0027). */
+  STARTER_PLAYLIST_SALSA: z.string().url().optional(),
+  STARTER_PLAYLIST_BACHATA: z.string().url().optional(),
   RAILWAY_GIT_COMMIT_SHA: z.string().optional(),
   WEB_DIST: z.string().optional(),
   DOCS_DIST: z.string().optional(),

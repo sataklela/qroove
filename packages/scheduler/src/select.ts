@@ -14,6 +14,7 @@ export interface Selection {
 }
 
 const byAge = (a: Candidate, b: Candidate) =>
+  (a.priority ?? 0) - (b.priority ?? 0) ||
   a.acceptedSeq - b.acceptedSeq ||
   (a.requestId < b.requestId ? -1 : a.requestId > b.requestId ? 1 : 0);
 
@@ -49,6 +50,7 @@ export function selectNext(
   }));
   heads.sort(
     (a, b) =>
+      (a.head.priority ?? 0) - (b.head.priority ?? 0) ||
       a.head.acceptedSeq - b.head.acceptedSeq ||
       Number(a.style === history.lastStyle) - Number(b.style === history.lastStyle) ||
       (a.style < b.style ? -1 : a.style > b.style ? 1 : 0) ||
@@ -71,6 +73,7 @@ function summarise(blocked: Selection['blocked']): string {
   const reasons = new Set(blocked.map((b) => b.reason));
   if (reasons.has('STYLE_DISABLED')) return 'Waiting for its part of the evening';
   if (reasons.has('NOT_PLAYABLE')) return 'Waiting for a playable source';
-  if (reasons.has('RUN_CAP')) return 'Waiting for a different genre. Add one to keep the music going';
+  if (reasons.has('RUN_CAP'))
+    return 'Waiting for a different genre. Add one to keep the music going';
   return 'No eligible song right now';
 }

@@ -9,7 +9,14 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
-  use: { baseURL: `http://localhost:${PORT}`, trace: 'retain-on-failure' },
+  use: {
+    baseURL: `http://localhost:${PORT}`,
+    trace: 'retain-on-failure',
+    // A machine with its own Chromium (no `playwright install`) can point at it.
+    ...(process.env.E2E_CHROMIUM
+      ? { launchOptions: { executablePath: process.env.E2E_CHROMIUM } }
+      : {}),
+  },
   projects: [
     { name: 'pixel-8', use: { ...devices['Pixel 8'] } },
     // WebKit is not installed in CI; run locally with E2E_WEBKIT=1 (`pnpm exec playwright install webkit`).

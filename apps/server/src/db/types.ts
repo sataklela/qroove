@@ -63,6 +63,10 @@ export interface EventDoc {
   importSeed: number | null;
   /** Operational switch for radio fallback (ADR 0023); absent on older events = the default. */
   radioFallback?: boolean | null;
+  /** Guest requests play before pre-loaded starter songs (ADR 0027); absent = on. */
+  guestsFirst?: boolean | null;
+  /** Codenames already handed out at this event, as indices into the pair space (ADR 0026). */
+  codenames?: number[];
   /** The radio track the player is on, while the queue has nothing to play. Absent = none. */
   radio?: RadioDoc | null;
 }
@@ -196,21 +200,11 @@ export interface PurgeReport {
   idempotencyDeleted: number;
 }
 
-/**
- * Global record of generated event names. `used` holds the ordered word triples already handed
- * out this cycle (encoded as indices into the word list); `last` is the most recent name's words.
- */
-export interface NameLedger {
-  used: number[];
-  last: string[] | null;
-  /** How many times every permutation has been exhausted. */
-  cycle: number;
-}
-
 /** A cached Spotify-song to YouTube-video match. An empty list records "looked, found nothing". */
 export interface YouTubeMatchDoc {
   videoIds: string[];
   checkedAt: number;
 }
 
-export const EMPTY_NAME_LEDGER: NameLedger = { used: [], last: null, cycle: 0 };
+/** The synthetic participant that owns pre-loaded songs (starter songs, imports, carry-over). */
+export const SYSTEM_SEED_ID = 'system-seed';

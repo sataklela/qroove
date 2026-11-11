@@ -64,6 +64,46 @@ describe('Landing', () => {
     await waitFor(() => expect(screen.queryByText('Enter code')).toBeNull());
   });
 
+  it('starts a default event in one tap and goes straight to the organiser page', async () => {
+    const sent: Array<{ url: string; body: unknown }> = [];
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
+      sent.push({ url, body: init.body ? JSON.parse(init.body as string) : null });
+      if (url === '/api/events') {
+        return new Response(
+          JSON.stringify({
+            eventId: 'ev9',
+            slug: 'ABC123',
+            adminUrl: 'http://x/a/ev9#k=secret-secret-secret',
+          }),
+          { status: 201 },
+        );
+      }
+      if (url.endsWith('/admin/session')) {
+        return new Response(JSON.stringify({ ok: true, csrf: 'c' }));
+      }
+      // The organiser page itself is not under test here.
+      return new Response(JSON.stringify({ error: { code: 'X', message: '', action: '' } }), {
+        status: 503,
+      });
+    });
+    home();
+    const user = userEvent.setup();
+    // No form in between: the defaults are stated, and the planner is one small link away.
+    expect(
+      screen.getByText(/2 hours · Salsa and Bachata in turn · 20 songs each/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Plan in detail' })).toHaveAttribute('href', '/new');
+    await user.click(screen.getByRole('button', { name: 'Start an event now' }));
+    await waitFor(() => expect(sent[0]).toBeDefined());
+    expect(sent[0]!.url).toBe('/api/events');
+    expect(sent[0]!.body).toMatchObject({ starter: true });
+    expect(Object.keys(sent[0]!.body as object).sort()).toEqual(['starter', 'timezone']);
+    // The entry route exchanges the secret for a session.
+    await waitFor(() =>
+      expect(sent.some((c) => c.url.endsWith('/api/events/ev9/admin/session'))).toBe(true),
+    );
+  });
+
   it('says plainly when no event has that code', async () => {
     vi.stubGlobal(
       'fetch',

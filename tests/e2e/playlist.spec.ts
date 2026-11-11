@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectAccessible, joinAs } from './helpers';
+import { expectAccessible, joined, swipe } from './helpers';
 
 const tracks = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((t) => ({
   title: t,
@@ -7,22 +7,6 @@ const tracks = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'].map((t) => ({
   durationMs: 200_000,
   sourceUrl: null,
 }));
-
-/** Drag across a row with the pointer: down, a few moves, up. */
-async function swipe(
-  page: import('@playwright/test').Page,
-  row: import('@playwright/test').Locator,
-  dx: number,
-) {
-  await row.scrollIntoViewIfNeeded();
-  const b = (await row.boundingBox())!;
-  const y = b.y + b.height / 2;
-  const x = b.x + b.width / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  for (let i = 1; i <= 6; i++) await page.mouse.move(x + (dx * i) / 6, y + 1);
-  await page.mouse.up();
-}
 
 test('a guest sorts a playlist by swiping, then adds only the songs they have room for', async ({
   page,
@@ -42,11 +26,11 @@ test('a guest sorts a playlist by swiping, then adds only the songs they have ro
   const admin = await page.context().browser()!.newContext();
   const a = await admin.newPage();
   await a.goto(`/a/${created.eventId}${new URL(created.adminUrl).hash}`);
-  await a.getByRole('button', { name: 'Start event' }).click();
   await expect(a.getByRole('button', { name: 'Pause At End of Current Song' })).toBeVisible();
 
   await page.goto(`/e/${created.slug}`);
-  await joinAs(page, 'Ana');
+  await joined(page);
+  await page.getByRole('button', { name: /Add a song/ }).click();
   await page
     .getByLabel('Search Spotify or paste a link')
     .fill('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M');
@@ -68,13 +52,13 @@ test('a guest sorts a playlist by swiping, then adds only the songs they have ro
   // Now Echo, Bravo, Charlie are active and Delta is greyed out.
   await expect(rows.nth(3)).toHaveClass(/over/);
 
-  await page.getByRole('radio', { name: 'Salsa', exact: true }).check();
-  await expect(page.getByText(/You selected SALSA\. Remove all BACHATA/)).toBeVisible();
-  await page.getByRole('button', { name: 'Add 3 songs to queue' }).click();
-  await expect(page.getByText(/3 added/)).toBeVisible();
-  const mine = page.getByRole('region', { name: 'My songs' });
-  await expect(mine.getByText('Echo')).toBeVisible();
-  await expect(mine.getByText('Delta')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add as Salsa' }).click();
+  await expect(page.getByText('3 added.')).toBeVisible();
+  // They are in the one queue, marked as this guest's.
+  const mine = page.getByRole('region', { name: 'Queue' }).locator('.qrow.mine');
+  await expect(mine).toHaveCount(3);
+  await expect(mine.filter({ hasText: 'Echo' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Queue' }).getByText('Delta')).toHaveCount(0);
   await admin.close();
 });
 
@@ -101,17 +85,16 @@ test('a guest finds a song by searching, with no Spotify login', async ({ page, 
   const admin = await page.context().browser()!.newContext();
   const a = await admin.newPage();
   await a.goto(`/a/${created.eventId}${new URL(created.adminUrl).hash}`);
-  await a.getByRole('button', { name: 'Start event' }).click();
   await expect(a.getByRole('button', { name: 'Pause At End of Current Song' })).toBeVisible();
 
   await page.goto(`/e/${created.slug}`);
-  await joinAs(page, 'Ana');
+  await joined(page);
+  await page.getByRole('button', { name: /Add a song/ }).click();
   await page.getByLabel('Search Spotify or paste a link').fill('vivir');
   await page.getByRole('button', { name: 'Vivir Mi Vida Marc Anthony' }).click();
   await expect(page.getByRole('list', { name: 'Songs to add' })).toContainText('Vivir Mi Vida');
-  await page.getByRole('radio', { name: 'Salsa', exact: true }).check();
-  await page.getByRole('button', { name: 'Add 1 song to queue' }).click();
-  await expect(page.getByText('1 added')).toBeVisible();
   await expectAccessible(page, '/e/:slug (search)');
+  await page.getByRole('button', { name: 'Add as Salsa' }).click();
+  await expect(page.getByText('1 added.')).toBeVisible();
   await admin.close();
 });

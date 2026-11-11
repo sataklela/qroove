@@ -7,6 +7,14 @@ versioning: [SemVer](https://semver.org/).
 
 ### Added
 
+- **Fewest taps (Phase 18).** The whole product was reworked so each action takes the least it can, and no screen scrolls (only the queue list does).
+  - **One-tap event.** _Start an event now_ on the home page creates an event with the defaults (2 hours, Salsa and Bachata alternating, 20 songs per person) and opens the organiser page with it already running. The planner is still there behind a small _Plan in detail_ link.
+  - **Settings while the music plays.** The organiser's More page has event time, songs in a row, songs per person, genres and _guests first_; each control saves itself. `POST /api/events/:id/admin/settings`. ADR 0025.
+  - **Starter songs and guests first.** A one-tap event is pre-loaded with about 10 Salsa and 10 Bachata songs from house playlists (`STARTER_PLAYLISTS`, or `STARTER_PLAYLIST_SALSA` / `STARTER_PLAYLIST_BACHATA` on the server; none are set yet). Guests' requests play before starter songs automatically, within each genre's turn, and a guest who asks for a starter song takes it over instead of being told it is a duplicate. ADR 0027.
+  - **No name to type.** Opening the event page joins it. Each guest gets a two-word codename, a vegetable and a sea animal (_Carrot Octopus_), unique within the event, shown to them and beside their songs on the organiser's queue. ADR 0026.
+  - **Guest page on one screen:** now playing, the queue, and one _＋ Add a song_ button. A guest's own songs are marked in the queue and withdrawn there with one swipe to the left (or ✕ then Remove). Adding is paste, then one tap on _Add as Salsa_ / _Add as Bachata_.
+  - **Organiser queue:** only what is still to come, in play order, with codenames; swipe left to remove. The room code is always in the top bar.
+
 - **Log in with Google for YouTube playlists.** _My YouTube playlist_ now works like _My Spotify playlist_: a guest logs in with Google (read-only `youtube.readonly` scope; the refresh token stays in an encrypted HttpOnly cookie on their device) and sees their own playlists, private ones and _Liked music_ included. Needs `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` and a consent screen set up in Google Cloud (runbook: Google sign-in). Without them the login link is hidden and the public-channel lookup remains. ADR 0024.
 - **My YouTube playlist.** Under _Add music_, guests can paste their YouTube channel link or @handle (remembered on that device) and pick one of its public playlists, like _My Spotify playlist_ but with no sign-in. Uses the existing YouTube Data API key (`GET /api/youtube/playlists`, 2 quota units); the songs then load through the same playlist import as a pasted link. 
 - **Radio fallback.** An organiser switch (on by default; fills genre gaps when one genre is held by its run limit) plays a live station when no guest song is due: Bachata Sensual Radio is enabled (Salsa, Other and Cha-cha have no verified station yet; SalsaViva answered 401). The player tells the server which radio track is audible (`POST /player/radio/started` and `/ended`, `POST /admin/radio`); radio updates the genre history without being anyone's request and never counts toward a run; a waiting guest song takes over at the station's next track, after 4 minutes at most, or on _Play the queued song now_. Guests see "Radio fallback" on _Now playing_. ADR 0023.
@@ -27,6 +35,10 @@ versioning: [SemVer](https://semver.org/).
 
 ### Changed
 
+- Events no longer have a generated three-word name; the room code is the name (older events keep theirs). The event-name ledger is gone.
+- Rules are no longer frozen when the event starts (the fingerprint is recalculated and each change is in the audit log).
+- Removed from the guest page: the name form, _Next up_, _My next song_, the _My songs_ tab and the played-songs list. Removed from the organiser page: the _Time_ and _Rules_ panels (settings replace them) and played songs in the queue.
+- `E2E_CHROMIUM` lets the e2e suite use a Chromium that is already installed.
 - Genre colours are now the same everywhere: red salsa, blue bachata, amber cha-cha, purple Other (bachata was black, Other grey). The dark theme uses the new charcoal and amber palette.
 - Planned time on offer: 0:15, 0:30, 0:45, 1:00, 1:30, 2:00, 2:30, 3:00, 3:30, 4:00, then whole hours to 8:00 (the API still takes any multiple of 15 minutes).
 - The live status on the event page is now a labelled pill in the page, not a dot in the header.

@@ -1,6 +1,11 @@
 import { DomainError, allowedStyles, type Provider, type StyleId } from '@qroove/contracts';
 import { countsTowardQuota } from '@qroove/scheduler';
-import type { ParticipantDoc, RecordingKeyDoc, RequestDoc } from '../../db/types.js';
+import {
+  SYSTEM_SEED_ID,
+  type ParticipantDoc,
+  type RecordingKeyDoc,
+  type RequestDoc,
+} from '../../db/types.js';
 import {
   audit,
   commit,
@@ -13,20 +18,29 @@ import {
   type Deps,
   type Work,
 } from '../context.js';
-import { sha256 } from '../ids.js';
+import { codename, pickCodename } from '../codenames.js';
+import { mulberry32, sha256 } from '../ids.js';
 
-/** Anyone with the room code (or the QR code, which opens the same link) can join. */
-export async function joinEvent(deps: Deps, input: { eventId: string; nickname?: string }) {
+/**
+ * Anyone with the room code (or the QR code, which opens the same link) can join. Nobody types a
+ * name: each person gets a codename that no one else at the event has (ADR 0026).
+ */
+export async function joinEvent(deps: Deps, input: { eventId: string }) {
   return deps.repo.runInTransaction(input.eventId, async (tx) => {
     const event = await tx.getEvent();
     if (!event) throw new DomainError('NOT_FOUND');
     if (event.state === 'ENDED' || event.state === 'ARCHIVED') throw new DomainError('EVENT_ENDED');
     const now = deps.clock.now();
     const token = deps.ids.secret();
+    const taken = event.codenames ?? [];
+    const index = pickCodename(taken, mulberry32(deps.ids.seed()));
+    const nickname = codename(index);
+    // Silent: a new guest changes nothing anyone else can see.
+    tx.putEvent({ ...event, codenames: [...taken, index] }, { silent: true });
     const p: ParticipantDoc = {
       id: deps.ids.participantId(),
       tokenHash: sha256(token),
-      nickname: input.nickname?.trim() || null,
+      nickname,
       joinedAt: now,
       lastSeenAt: now,
       acceptedCount: 0,
@@ -39,7 +53,7 @@ export async function joinEvent(deps: Deps, input: { eventId: string; nickname?:
       payload: { participantId: p.id },
       idempotencyKey: null,
     });
-    return { participantId: p.id, token };
+    return { participantId: p.id, token, nickname };
   });
 }
 
@@ -69,6 +83,7 @@ export interface SubmitInput extends CommandOpts {
   track: TrackInput;
 }
 
+const TAKEABLE: ReadonlySet<string> = new Set(['QUEUED', 'INELIGIBLE_TEMPORARILY', 'OVERFLOW']);
 const OPEN_FOR_SUBMIT = new Set(['DRAFT', 'ACTIVE', 'PAUSED']);
 
 export function submitRequest(deps: Deps, input: SubmitInput) {
@@ -83,6 +98,8 @@ export function submitRequest(deps: Deps, input: SubmitInput) {
     const t = input.track;
     const keys = [t.canonicalKey, ...(t.aliasKeys ?? []).filter((k) => k !== t.canonicalKey)];
     let uncertain = false;
+    /** A waiting starter song with this recording: the guest takes it over instead of being refused. */
+    let starter: RequestDoc | null = null;
     // Duplicates are rejected before quota is looked at, so a rejected duplicate costs nothing.
     for (const k of keys) {
       const hit = await c.tx.getRecordingKey(k);
@@ -95,13 +112,17 @@ export function submitRequest(deps: Deps, input: SubmitInput) {
         other?.durationMs != null &&
         Math.abs(t.durationMs - other.durationMs) > 5000;
       if (lengthsDiffer) uncertain = true;
-      else
+      else if (other && other.ownerId === SYSTEM_SEED_ID && TAKEABLE.has(other.state)) {
+        starter = other;
+        break;
+      } else
         throw new DomainError(
           'DUPLICATE',
           other ? `Already queued as “${other.title}”.` : undefined,
         );
     }
-    if (t.looseKey) {
+    if (starter) uncertain = false;
+    if (t.looseKey && !starter) {
       const hit = await c.tx.getRecordingKey(t.looseKey);
       if (hit && hit.state !== 'released') uncertain = true;
     }
@@ -109,6 +130,40 @@ export function submitRequest(deps: Deps, input: SubmitInput) {
     const mine = await c.tx.listRequests({ ownerId: p.id });
     const used = mine.filter((r) => countsTowardQuota(r.state)).length;
     if (used >= e.rules.submissionLimit) throw new DomainError('QUOTA_FULL');
+
+    if (starter) {
+      const seedOwner = await c.tx.getParticipant(SYSTEM_SEED_ID);
+      const w = await loadWork(c);
+      // Same request, new owner: it keeps its recording locks and now counts as a guest's song.
+      const taken: RequestDoc = {
+        ...starter,
+        ownerId: p.id,
+        style: input.style,
+        sourceUrl: t.sourceUrl ?? starter.sourceUrl,
+        durationMs: t.durationMs ?? starter.durationMs,
+        artworkUrl: t.artworkUrl ?? starter.artworkUrl,
+        acceptedSeq: e.acceptedSeq + 1,
+        updatedAt: c.now,
+      };
+      w.event = { ...e, acceptedSeq: taken.acceptedSeq };
+      w.putRequest(taken);
+      c.tx.putParticipant({ ...p, acceptedCount: used + 1, lastSeenAt: c.now });
+      if (seedOwner) {
+        c.tx.putParticipant({
+          ...seedOwner,
+          acceptedCount: Math.max(0, seedOwner.acceptedCount - 1),
+        });
+      }
+      audit(
+        c,
+        'request.takeover',
+        'participant',
+        { requestId: taken.id, style: taken.style },
+        input.idempotencyKey ?? null,
+      );
+      const version = commit(c, w);
+      return { request: w.requests.get(taken.id)!, version };
+    }
 
     const heldKeys = new Set<string>();
     if (uncertain) {

@@ -274,21 +274,5 @@ export function runRepoContract(name: string, make: () => Promise<Repository>, s
       expect(await repo.getEventPublic(event.id)).toBeNull();
       expect(await repo.findEventBySlug(event.publicSlug)).toBeNull();
     });
-
-    it('updates the event-name ledger atomically and in order', async () => {
-      const repo = await make();
-      const results = await Promise.all(
-        [1, 2, 3, 4, 5].map((n) =>
-          repo.updateNameLedger((l) => ({
-            ledger: { ...l, used: [...l.used, n], last: [String(n)] },
-            result: l.used.length,
-          })),
-        ),
-      );
-      // Each call saw the previous call's write: no two read the same state.
-      expect(new Set(results).size).toBe(5);
-      const last = await repo.updateNameLedger((l) => ({ ledger: l, result: l }));
-      expect(last.used).toHaveLength(5);
-    });
   });
 }

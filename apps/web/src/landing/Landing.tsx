@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { adminApi, organiserPath } from '../admin/adminApi';
 import { api, ApiError } from '../shared/api';
 import { CodeInput } from '../shared/CodeInput';
 
@@ -27,6 +28,24 @@ export function Landing() {
     }
   }
 
+  /** One tap: an event with the default settings and starter songs, straight to the console. */
+  async function create() {
+    setBusy(true);
+    setProblem(null);
+    try {
+      const made = await adminApi.create({
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+        starter: true,
+      });
+      go(organiserPath(made), { replace: true });
+    } catch (e) {
+      setProblem(
+        e instanceof ApiError ? `${e.message} ${e.action}` : 'Could not create the event.',
+      );
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="landing">
       <h1>Enter code</h1>
@@ -48,10 +67,14 @@ export function Landing() {
         )}
       </div>
       <div className="landing-actions">
-        <Link to="/new" className="btn primary">
-          Create an event
-        </Link>
+        <button type="button" className="btn primary" disabled={busy} onClick={() => void create()}>
+          Start an event now
+        </button>
       </div>
+      <p className="muted small landing-defaults">
+        2 hours · Salsa and Bachata in turn · 20 songs each. Change any of it once the music is on.{' '}
+        <Link to="/new">Plan in detail</Link>
+      </p>
     </div>
   );
 }

@@ -78,6 +78,8 @@ Build a minimal, installable Progressive Web App (PWA) with a **server-authorita
 
 ### 3.1 Event rules snapshot
 
+> **Superseded in part (2026-11-11, ADR 0025):** planned time, genres, songs in a row and songs per person may be changed by the organiser while the event runs; the hash is recalculated and each change is audited.
+
 Store immutable `rules_version`, `genre_run_caps` mapping (default Salsa:2, Bachata:2), `submission_limit_active` (default 5), allowed style names, requester-spacing requirement (`minimum_style_transitions_since_requester_play=1`), `no_same_requester_adjacent=true`, `recording_unique_per_event=true`, FIFO admission order and music duration policy. Event time and pause/reservation periods belong to _mutable operational schedule_, separately audited from immutable rules. At event start commit frozen JSON and hash; server rejects any subsequent attempt to modify it, even from admin.
 
 ### 3.2 Per-track states

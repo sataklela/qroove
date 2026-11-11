@@ -2124,3 +2124,222 @@ body.console .layout main {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* ---- phase 18: fewest taps — fixed guest screen, swipe rows, add sheet, live settings -------- */
+.deck.console {
+  gap: 0.4rem;
+}
+.deck.console .status-now {
+  flex: none;
+  padding: 0.6rem 0.75rem;
+}
+.deck.console .status-now .deck-title {
+  margin-bottom: 0.15rem;
+}
+.deck.console .now-title {
+  font-size: 1.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.deck-line {
+  margin: 0;
+  min-height: 1.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.codename {
+  color: var(--text);
+}
+.room-code-chip {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.add-bar {
+  flex: none;
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 1.05rem;
+}
+.add-bar .quota {
+  color: inherit;
+  opacity: 0.85;
+}
+.landing-defaults {
+  max-width: 22rem;
+  margin: 0;
+}
+
+/* One queue row: two lines of text, optional badge, optional remove. */
+.qlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.qrow {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  margin-bottom: 4px;
+  background: var(--surface);
+  touch-action: pan-y;
+  transition:
+    opacity 0.16s ease,
+    max-height 0.16s ease;
+  max-height: 8rem;
+}
+.qrow:not(.swipe),
+.qrow-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.45rem 0.75rem;
+  min-width: 0;
+}
+.qrow-body {
+  flex: 1;
+}
+.qrow .title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qrow .badge {
+  align-self: flex-start;
+}
+.qrow.note {
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.qrow.overflow,
+.qrow.waiting {
+  opacity: 0.75;
+}
+.qrow.mine .qrow-fg {
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+.qrow.starter .title {
+  font-weight: 500;
+}
+.qrow.leaving {
+  opacity: 0;
+  max-height: 0;
+  margin: 0;
+}
+.qrow-bin {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 1rem;
+  background: #c62828;
+  color: #fff;
+  pointer-events: none;
+}
+.qrow-fg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  user-select: none;
+}
+.qrow-x {
+  flex: none;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0 0.25rem 0 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.qrow-x.btn.danger {
+  color: #fff;
+  padding: 0 0.75rem;
+}
+
+/* The add sheet covers the screen; only its song list scrolls. */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem;
+}
+.add-sheet {
+  flex: 1;
+  min-height: 0;
+  width: min(42rem, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.add-sheet .card-head {
+  align-items: center;
+}
+.add-sheet .card-head h2 {
+  flex: 1;
+}
+.add-sheet .validation {
+  margin: 0;
+}
+.add-songs {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.genre-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.genre-add .btn {
+  flex: 1 1 40%;
+  min-height: 52px;
+  margin: 0;
+  justify-content: center;
+}
+.genre-add .btn:disabled {
+  opacity: 0.5;
+}
+.settings .params .wheel.small {
+  max-width: 100%;
+}
+.settings .genre-add .btn {
+  flex: 1 1 20%;
+  min-height: 44px;
+  padding: 0 0.4rem;
+}
+.genre-chip.add-as::after {
+  content: none;
+}
+.genre-chip.add-as {
+  font-size: 1rem;
+}
+.deck.console .status-now {
+  min-height: 0;
+}
+.genre-add .btn {
+  white-space: nowrap;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.page.more .row .btn {
+  flex: 1 1 auto;
+  justify-content: center;
+}

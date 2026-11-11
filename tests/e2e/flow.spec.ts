@@ -1,16 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
-import { addSong, joinAs, expectAccessible, newPage } from './helpers';
+import { expect, test } from '@playwright/test';
+import { addSong, expectAccessible, expectNoScroll, joined, newPage, swipe } from './helpers';
 
-/** The page never needs vertical scrolling (the queue list is the one allowed exception). */
-async function expectNoScroll(page: Page, label: string) {
-  const over = await page.evaluate(() => {
-    const el = document.scrollingElement!;
-    return el.scrollHeight - el.clientHeight;
-  });
-  expect(over, `${label} should fit the screen`).toBeLessThanOrEqual(1);
-}
-
-test('create → run → play manually → hand over → end → carry over', async ({
+test('one tap → guests join by opening → add, withdraw → live settings → hand over → end', async ({
   browser,
   page,
   baseURL,
@@ -27,54 +18,39 @@ test('create → run → play manually → hand over → end → carry over', as
   await expectAccessible(page, '/ (menu open)');
   await page.keyboard.press('Escape');
 
-  await page.getByRole('link', { name: 'Create an event' }).click();
-  await expectAccessible(page, '/new');
-  // No name field: the server names the event from neutral words.
-  await expect(page.getByLabel(/event name/i)).toHaveCount(0);
-  await expect(page.getByRole('spinbutton', { name: 'Total duration' })).toHaveAttribute(
-    'aria-valuetext',
-    '2:00',
-  );
-  // A plain tap on the bar only selects a part; pressing and holding adds a break in its middle.
-  const part1 = page.getByRole('button', { name: /^Part 1 of 1/ });
-  await part1.click();
-  await expect(page.getByRole('button', { name: /^Part/ })).toHaveCount(1);
-  const box = (await part1.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 3, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(700);
-  await page.mouse.up();
-  await expect(page.getByRole('button', { name: /^Part/ })).toHaveCount(2);
-  await expect(page.getByRole('slider', { name: 'Break 1', exact: true })).toHaveAttribute(
-    'aria-valuenow',
-    '60',
-  );
-  await expectAccessible(page, '/new (with a break)');
-  // Creating goes straight to the organiser page: no interstitial, no link or recovery secret shown.
+  // ONE tap: a default event, straight on the organiser page, already running ---------------
   const created = page.waitForResponse(
     (r) => r.url().endsWith('/api/events') && r.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Create event' }).click();
-  const made = (await (await created).json()) as { adminUrl: string };
-  const adminUrl = made.adminUrl;
-  expect(adminUrl).toContain('#k=');
+  await page.getByRole('button', { name: 'Start an event now' }).click();
+  const made = (await (await created).json()) as { adminUrl: string; slug: string };
+  expect(made.adminUrl).toContain('#k=');
   await expect(page).toHaveURL(/\/admin\//);
+  await expect(page.getByRole('button', { name: 'Pause At End of Current Song' })).toBeVisible();
   await expect(page.getByText(/Save this link|recovery/i)).toHaveCount(0);
-  const eventName = (await page.getByRole('heading', { level: 1 }).innerText()).trim();
-  expect(eventName).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+$/);
-  await expect(page.getByRole('heading', { name: eventName })).toBeVisible();
+  // No event name: the room code is the name, and it is always in the top bar.
+  const code = `${made.slug.slice(0, 3)}-${made.slug.slice(3)}`;
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(code);
+  await expect(page.locator('.topbar .event-token')).toContainText(code);
   const eventId = new URL(page.url()).pathname.split('/').pop()!;
 
-  // The organiser console fits one screen on every tab except the queue list ----------------
+  // The organiser console fits one screen on every page ------------------------------------
   await expectNoScroll(page, 'console (queue, empty)');
-  await expectAccessible(page, '/admin (draft)');
+  await expectAccessible(page, '/admin (live)');
   await page.getByRole('tab', { name: 'Invite' }).click();
   await expect(page.getByRole('img', { name: /QR code to join/ })).toBeVisible();
-  // The permanent room code is shown as two triplets, with the QR as a backup.
-  await expect(page.getByText(/^[0-9A-Z]{3}-[0-9A-Z]{3}$/)).toBeVisible();
   await expectNoScroll(page, 'console (invite)');
   await page.getByRole('tab', { name: 'More' }).click();
+  await expect(page.getByRole('spinbutton', { name: 'Event time' })).toHaveAttribute(
+    'aria-valuetext',
+    '2:00',
+  );
   await expectNoScroll(page, 'console (more)');
+  expect(
+    await page.locator('.page.more').evaluate((el) => el.scrollHeight - el.clientHeight),
+    'the settings fit without scrolling',
+  ).toBeLessThanOrEqual(1);
+  await expectAccessible(page, '/admin (settings)');
   await page.getByRole('tab', { name: 'Playing' }).click();
 
   // Right-click is blocked on the organiser page ---------------------------------------------
@@ -85,58 +61,69 @@ test('create → run → play manually → hand over → end → carry over', as
   });
   expect(blocked).toBe(true);
 
-  await page.getByRole('button', { name: 'Start event' }).click();
-  await expect(page.getByRole('button', { name: 'Pause At End of Current Song' })).toBeVisible();
-
-  // The QR code opens the same public link the typed room code leads to ----------------------
-  const state = await (await page.request.get(`/api/events/${eventId}/admin/state`)).json();
-  const joinUrl = new URL(state.joinUrl);
-  const slug = joinUrl.pathname.split('/').pop()!;
-  expect(joinUrl.hash).toBe('');
-
-  // Typing the room code on the landing page is enough to get in and join ---------------------
+  // Typing the room code is enough: the guest is in, with a codename, without a tap ----------
   const typed = await newPage(browser, ctxOpts);
   await typed.page.goto('/');
   await typed.page.getByRole('textbox').first().click();
-  await typed.page.keyboard.type(slug.toLowerCase());
-  await expect(typed.page).toHaveURL(new RegExp(`/e/${slug}$`));
-  await expect(typed.page.getByRole('button', { name: 'Join this event' })).toBeVisible();
+  await typed.page.keyboard.type(made.slug.toLowerCase());
+  await expect(typed.page).toHaveURL(new RegExp(`/e/${made.slug}$`));
+  expect(await joined(typed.page)).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
 
-  // Three attendees join through the link in the QR code ---------------------------------------------------
+  // Three guests open the QR link and add a song each: paste, then one tap --------------------
   const people = [] as Awaited<ReturnType<typeof newPage>>[];
-  for (const [i, [title, artist, style]] of [
+  const names: string[] = [];
+  for (const [i, [title, artist, genre]] of [
     ['Song One', 'Band A', 'Salsa'],
     ['Song Two', 'Band B', 'Bachata'],
     ['Song Three', 'Band C', 'Salsa'],
   ].entries()) {
     const p = await newPage(browser, ctxOpts);
     people.push(p);
-    await p.page.goto(joinUrl.pathname);
-    await expect(p.page.getByRole('button', { name: 'Join this event' })).toBeVisible();
-    await joinAs(p.page, `Guest ${i + 1}`);
-    if (i === 0) await expectAccessible(p.page, '/e/:slug (joined)');
-    await addSong(p.page, title!, artist!, style!);
+    await p.page.goto(`/e/${made.slug}`);
+    names.push(await joined(p.page));
+    if (i === 0) {
+      await expectNoScroll(p.page, 'guest page');
+      await expectAccessible(p.page, '/e/:slug (joined)');
+      await p.page.getByRole('button', { name: /Add a song/ }).click();
+      await expectNoScroll(p.page, 'guest page (add sheet)');
+      await expectAccessible(p.page, '/e/:slug (add sheet)');
+      await p.page.getByRole('button', { name: 'Close' }).click();
+    }
+    await addSong(p.page, title!, artist!, genre!);
   }
+  expect(new Set(names).size).toBe(3);
 
-  // The 10-minute break shows in the attendees' queue at the midpoint of the plan -------------
-  await people[0]!.page.getByText(/^Whole queue/).click();
-  await expect(people[0]!.page.getByText(/Break · 10 min/)).toBeVisible();
+  // Organiser sees all three, each with its guest's codename ----------------------------------
+  const queue = page.getByRole('region', { name: 'Queue' });
+  await expect(queue.getByText('Song Two')).toBeVisible();
+  await expect(queue.getByText('Song Three')).toBeVisible();
+  await expect(queue.getByText(names[1]!)).toBeVisible();
 
-  // Organiser sees all three requests -------------------------------------------------------
-  await expect(page.getByText('Song Two').first()).toBeVisible();
-  await expect(page.getByText('Song Three').first()).toBeVisible();
+  // A guest withdraws their own song from the queue itself, with one swipe ---------------------
+  const third = people[2]!.page;
+  await swipe(third, third.locator('.qrow.mine .qrow-fg'), -260);
+  await expect(third.getByText('Withdrew “Song Three”.')).toBeVisible();
+  await expect(queue.getByText('Song Three')).toHaveCount(0);
+  // The organiser removes one with a swipe too.
+  await swipe(page, queue.locator('.qrow-fg', { hasText: 'Song Two' }), -260);
+  await expect(queue.getByText('Song Two')).toHaveCount(0);
+  await expect(people[1]!.page.getByText(/“Song Two”: Removed by the organiser/)).toBeVisible();
+
+  // Settings change while the event runs: a new genre appears on the guests' phones ------------
+  await page.getByRole('tab', { name: 'More' }).click();
+  await page.getByRole('checkbox', { name: 'Cha-cha' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Cha-cha' })).toBeChecked();
+  await third.getByRole('button', { name: /Add a song/ }).click();
+  await expect(third.getByRole('button', { name: 'Add as Cha-cha' })).toBeVisible();
+  await third.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('tab', { name: 'Playing' }).click();
 
   // Player in manual mode (no local file) ---------------------------------------------------
-  const player = await newPage(browser, ctxOpts);
-  await player.page.goto(`/a/${eventId}${adminUrl.slice(adminUrl.indexOf('#'))}`);
-  await expect(player.page.getByRole('heading', { name: eventName })).toBeVisible();
-  await expectAccessible(player.page, '/admin (player)');
-  await player.page.getByRole('button', { name: 'Mark started' }).click();
-  await expect(player.page.getByRole('button', { name: 'Mark ended' })).toBeVisible();
-
-  await expect(people[0]!.page.getByText('Now playing').first()).toBeVisible();
-  await player.page.getByRole('button', { name: 'Mark ended' }).click();
-  await expect(player.page.getByRole('button', { name: 'Mark ended' })).toBeHidden();
+  await page.getByRole('button', { name: 'Mark started' }).click();
+  await expect(page.getByRole('button', { name: 'Mark ended' })).toBeVisible();
+  await expect(people[0]!.page.getByText('Song One').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Mark ended' }).click();
+  await expect(page.getByRole('button', { name: 'Mark ended' })).toBeHidden();
 
   // Handover: the new admin works, the old one is rejected -----------------------------------
   await page.getByRole('tab', { name: 'More' }).click();
@@ -146,11 +133,11 @@ test('create → run → play manually → hand over → end → carry over', as
   const claim = (await page.locator('p.mono', { hasText: '/claim/' }).innerText()).trim();
   const second = await newPage(browser, ctxOpts);
   await second.page.goto(claim);
-  await expect(second.page.getByRole('heading', { name: eventName })).toBeVisible();
+  await expect(second.page.getByRole('heading', { level: 1 })).toHaveText(code);
   await page.reload();
   await expect(page.getByText(/You do not have organiser access/)).toBeVisible();
 
-  // End with two clicks and no typing, then carry over ------------------------------------------
+  // End with two clicks and no typing --------------------------------------------------------
   const admin = second.page;
   await admin
     .getByRole('button', { name: 'Resume Playback' })
@@ -163,17 +150,37 @@ test('create → run → play manually → hand over → end → carry over', as
   await admin.getByRole('button', { name: 'Yes, end the event now' }).click();
   await expect(admin.getByRole('heading', { name: 'Carry over to a new event' })).toBeVisible();
   await expectAccessible(admin, '/admin (ended)');
-  await admin.getByRole('button', { name: 'Create event from these' }).click();
-  // The carried-over event opens straight on its own organiser page, with a new generated name.
-  await expect(admin.getByRole('heading', { level: 1 })).not.toHaveText(eventName);
-  await expect(admin.getByRole('button', { name: 'Start event' })).toBeVisible();
+  await expect(typed.page.getByText('This event has ended.')).toBeVisible();
 
   // Remaining public pages ------------------------------------------------------------------
   await page.goto('/privacy');
   await expectAccessible(page, '/privacy');
-  await page.goto(`/h/${slug}`);
-  await expect(page.getByRole('heading', { name: eventName })).toBeVisible();
+  await page.goto(`/h/${made.slug}`);
   await expectAccessible(page, '/h/:slug');
+  expect(eventId).toBeTruthy();
 
-  for (const p of [typed, ...people, player, second]) await p.context.close();
+  for (const p of [typed, ...people, second]) await p.context.close();
+});
+
+test('the detailed planner is one link away and still plans breaks', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Plan in detail' }).click();
+  await expectAccessible(page, '/new');
+  await expect(page.getByRole('spinbutton', { name: 'Total duration' })).toHaveAttribute(
+    'aria-valuetext',
+    '2:00',
+  );
+  // Pressing and holding the bar adds a break in the middle of the part.
+  const part1 = page.getByRole('button', { name: /^Part 1 of 1/ });
+  await part1.click();
+  const box = (await part1.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 3, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.up();
+  await expect(page.getByRole('button', { name: /^Part/ })).toHaveCount(2);
+  await expectAccessible(page, '/new (with a break)');
+  await page.getByRole('button', { name: 'Create event' }).click();
+  await expect(page).toHaveURL(/\/admin\//);
+  await expect(page.getByRole('button', { name: /Start break/ })).toBeVisible();
 });

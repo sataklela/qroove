@@ -2,7 +2,7 @@ import type { Candidate, HistoryState, RuleWindow, SchedulerRules } from '@qroov
 import { FALLBACK_RUN_CAP } from '@qroove/scheduler';
 import { genreOf, genresOf } from '@qroove/config';
 import type { Segment } from '@qroove/contracts';
-import type { EventDoc, HistoryDoc, RequestDoc } from '../db/types.js';
+import { SYSTEM_SEED_ID, type EventDoc, type HistoryDoc, type RequestDoc } from '../db/types.js';
 
 export const EMPTY_HISTORY_DOC: HistoryDoc = {
   lastStyle: null,
@@ -68,7 +68,9 @@ export function ruleWindowsOf(e: EventDoc): RuleWindow[] {
   }));
 }
 
-export const toCandidate = (r: RequestDoc): Candidate => ({
+/** `guestsFirst` marks pre-loaded songs as filler, so requests play ahead of them (ADR 0027). */
+export const toCandidate = (r: RequestDoc, guestsFirst = false): Candidate => ({
+  ...(guestsFirst && r.ownerId === SYSTEM_SEED_ID ? { priority: 1 } : {}),
   requestId: r.id,
   ownerId: r.ownerId,
   style: genreOf(r.style),

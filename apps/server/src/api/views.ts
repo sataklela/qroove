@@ -8,7 +8,7 @@ import type {
   TrackView,
 } from '@qroove/contracts';
 import { radioStation } from '@qroove/config';
-import type { EventAggregate, RequestDoc } from '../db/types.js';
+import { SYSTEM_SEED_ID, type EventAggregate, type RequestDoc } from '../db/types.js';
 import { radioEnabled, radioHoldUntil } from '../domain/commands/radio.js';
 import { segmentIndexAt } from '../domain/history.js';
 import { sha256 } from '../domain/ids.js';
@@ -127,6 +127,7 @@ export function requestView(r: RequestDoc, agg: EventAggregate): RequestView {
 export function myRequests(agg: EventAggregate, participantId: string): MyRequests {
   const mine = agg.requests.filter((r) => r.ownerId === participantId);
   return {
+    nickname: agg.nicknames[participantId] ?? null,
     accepted: mine.filter((r) => !['WITHDRAWN', 'REJECTED', 'UNAVAILABLE'].includes(r.state))
       .length,
     limit: agg.event.rules.submissionLimit,
@@ -143,6 +144,7 @@ export function adminState(agg: EventAggregate, now: number, baseUrl: string): A
     style: r.style,
     ownerNickname: agg.nicknames[r.ownerId] ?? null,
     ownerLabel: sha256(`${agg.event.id}:${r.ownerId}`).slice(0, 4).toUpperCase(),
+    starter: r.ownerId === SYSTEM_SEED_ID,
     acceptedSeq: r.acceptedSeq,
     possibleDuplicate: r.possibleDuplicate,
     removedReason: r.removedReason,
@@ -157,6 +159,7 @@ export function adminState(agg: EventAggregate, now: number, baseUrl: string): A
     rulesHash: agg.event.rulesHash,
     rules: agg.event.rules,
     plannedDurationMin: agg.event.plannedDurationMin,
+    guestsFirst: agg.event.guestsFirst !== false,
     joinUrl: `${baseUrl}/e/${agg.event.publicSlug}`,
   };
 }
