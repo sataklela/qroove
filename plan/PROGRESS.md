@@ -3,7 +3,7 @@
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 **Current phase:** — (all phases done; Phase 18 fewest-taps pass added 2026-11-11)
-**Next session starts with:** Phase 18: put the two house playlist links in `packages/config/src/starter.ts` (or set `STARTER_PLAYLIST_SALSA` / `STARTER_PLAYLIST_BACHATA` on Railway), then try the one-tap flow on two real phones (swipes on iOS and Android). Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, (radio is already on by default, ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
+**Next session starts with:** Phase 18 browser and phone checks: follow `docs/src/runbook/fewest-taps-checks.md` (set-up, sequences O1–O11 and G1–G12 with tap targets, what is and is not verified). Also: put the two house playlist links in `packages/config/src/starter.ts` (or set `STARTER_PLAYLIST_SALSA` / `STARTER_PLAYLIST_BACHATA` on Railway), then try the one-tap flow on two real phones (swipes on iOS and Android). Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, (radio is already on by default, ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
 
 ## Phases
 
@@ -239,3 +239,4 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 - **Not verified:** real touch swipes on iOS/Android (Chromium pointer events only); house playlists against live Spotify/YouTube pages; Not deployed.
 - Docs screenshots regenerated (`landing`, `attendee-event`, `attendee-add`, `admin-dashboard`, `admin-settings`); `admin-create*.png` and `attendee-light.png` are older.
 - Tests: scheduler 32, contracts 11, config 6, server 175 (memory) and 59 on the Firestore emulator, web 128, e2e 7 incl. axe. The e2e suite needs `E2E_CHROMIUM=/path/to/chromium` on a machine without `playwright install`.
+- Handover for the next session (browser attached): `docs/src/runbook/fewest-taps-checks.md`.

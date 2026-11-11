@@ -60,6 +60,7 @@ export default defineConfig({
           { text: 'Firebase', link: '/runbook/firebase' },
           { text: 'Backup', link: '/runbook/backup' },
           { text: 'Transfer ownership', link: '/runbook/transfer-ownership' },
+          { text: 'Fewest-taps checks', link: '/runbook/fewest-taps-checks' },
         ],
       },
       {
