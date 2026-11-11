@@ -1,4 +1,9 @@
-import { DEFAULT_ENABLED_STYLES, RULE_DEFAULTS, type GenreId } from '@qroove/config';
+import {
+  DEFAULT_ENABLED_STYLES,
+  RULE_DEFAULTS,
+  formatRoomCode,
+  type GenreId,
+} from '@qroove/config';
 import {
   DomainError,
   RulesSnapshot,
@@ -9,6 +14,7 @@ import {
   type SegmentInput,
   type StyleId,
 } from '@qroove/contracts';
+import { SYSTEM_SEED_ID } from '../db/types.js';
 import type {
   AdminGrantDoc,
   EventDoc,
@@ -109,7 +115,8 @@ export function buildBreaks(
 }
 
 export interface DraftInput {
-  name: string;
+  /** Absent: the event is known by its room code alone (ADR 0026). */
+  name?: string;
   timezone: string;
   rules: RulesSnapshot;
   plannedDurationMin: number | null;
@@ -132,10 +139,11 @@ export function newDraft(
 } {
   const now = deps.clock.now();
   const secrets = { adminSecret: deps.ids.secret(), recoverySecret: deps.ids.secret() };
+  const slug = deps.ids.slug();
   const event: EventDoc = {
     id: deps.ids.eventId(),
-    name: input.name,
-    publicSlug: deps.ids.slug(),
+    name: input.name ?? formatRoomCode(slug),
+    publicSlug: slug,
     state: 'DRAFT',
     timezone: input.timezone,
     createdAt: now,
@@ -193,7 +201,7 @@ export interface SeedSong {
   sourceUrl: string | null;
 }
 
-export const SYSTEM_SEED_ID = 'system-seed';
+export { SYSTEM_SEED_ID };
 export const MAX_SEEDS = 150;
 
 /** Pre-queued songs (imported playlists, carry-over) belong to one synthetic participant. */

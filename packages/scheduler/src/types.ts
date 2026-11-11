@@ -12,6 +12,8 @@ export interface Candidate {
   canonicalKey: string;
   durationMs: number | null;
   playable: boolean;
+  /** Lower plays first within a genre's turn: 0 (default) for requests, 1 for filler songs. */
+  priority?: number;
 }
 
 export interface HistoryState {

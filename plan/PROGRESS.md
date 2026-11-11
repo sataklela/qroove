@@ -2,8 +2,8 @@
 
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
-**Current phase:** — (all phases done; Phase 17 radio fallback added 2026-11-05)
-**Next session starts with:** Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, (radio is already on by default, ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
+**Current phase:** — (all phases done; Phase 18 fewest-taps pass added 2026-11-11)
+**Next session starts with:** Phase 18 browser and phone checks: follow `docs/src/runbook/fewest-taps-checks.md` (set-up, sequences O1–O11 and G1–G12 with tap targets, what is and is not verified). Also: put the two house playlist links in `packages/config/src/starter.ts` (or set `STARTER_PLAYLIST_SALSA` / `STARTER_PLAYLIST_BACHATA` on Railway), then try the one-tap flow on two real phones (swipes on iOS and Android). Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, (radio is already on by default, ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
 
 ## Phases
 
@@ -227,3 +227,17 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 - **Option if guests need private playlists:** Google OAuth (`youtube.readonly`) like the Spotify guest login; needs a Google Cloud OAuth client and consent-screen verification, so it was not done.
 
 - **Google sign-in added the same day (ADR 0024):** `api/googleAuth.ts` (login, callback, `qg_session` cookie, `me/playlists[/:id]`, logout), UI in `YouTubeBrowse.tsx`, runbook `docs/src/runbook/google-oauth.md`. Server tests +4. **User to do:** consent screen, OAuth web client, test users and the two Railway variables (runbook steps 2–4). Not verified against real Google; app stays in Testing mode (7-day refresh tokens, listed test users only) until verified.
+
+### Phase 18 — fewest taps (2026-11-11)
+
+- Plan approved by the user in the session; ADRs 0025 (live settings), 0026 (codenames, no event name), 0027 (starter songs, guests first).
+- **Taps now:** organiser landing → running console: 1. Guest QR/code → joined: 0. Add a song: paste + 1 tap (after opening the sheet). Withdraw / remove: 1 swipe (✕ then Remove as the non-swipe path). Change a setting mid-event: swipe to More + 1 gesture.
+- Server: `updateSettings` + `POST /admin/settings`; `Candidate.priority` in the scheduler, `EventDoc.guestsFirst`; takeover of a waiting starter song in `submitRequest`; `domain/codenames.ts`, `EventDoc.codenames`, `joinEvent` no longer takes a name; `ingestion/starter.ts` + `CreateEventBody.starter`; event name = room code; name ledger and `eventNames.ts` removed (the `meta/eventNames` document in production Firestore is now unused and can be deleted).
+- Web: `Landing` one-tap create; `EventPage` fixed screen with auto-join, `GuestQueue`, add sheet (`AddMusic` with genre buttons that add); `shared/SwipeRow`; `ModerationPanel` (upcoming only) and `SettingsPanel`; More page has Settings / Sound / Hand over / End. Deleted: `JoinCard`, `MyRequests`, `QueueTabs`, `MyNextSong`, `NextUp`, `UpNext`, `nextSong`, `SchedulePanel`, `RulesPanel`.
+- **Starter playlists are not set**: `STARTER_PLAYLISTS` is empty, so one-tap events start empty until the user supplies a Salsa and a Bachata link. The mechanism is covered by API tests with a fake network only.
+- Decisions: the song already reserved as next is never displaced by a new request; a genre switched off keeps its songs waiting; the first song still needs one tap on the organiser's phone when the browser demands a gesture for sound (unchanged); withdrawing by swipe has no undo (the ✕ path asks once).
+- **Not verified:** real touch swipes on iOS/Android (Chromium pointer events only); house playlists against live Spotify/YouTube pages; Not deployed.
+- Docs screenshots regenerated (`landing`, `attendee-event`, `attendee-add`, `admin-dashboard`, `admin-settings`); `admin-create*.png` and `attendee-light.png` are older.
+- Tests: scheduler 32, contracts 11, config 6, server 175 (memory) and 59 on the Firestore emulator, web 128, e2e 7 incl. axe. The e2e suite needs `E2E_CHROMIUM=/path/to/chromium` on a machine without `playwright install`.
+- Handover for the next session (browser attached): `docs/src/runbook/fewest-taps-checks.md`.
+- **Second session, 2026-11-11 (desktop Playwright, no phone):** CI's only failure (flow e2e timeout) was the default-on radio holding the player for ~60 s; the test now hands over. WebKit e2e run for the first time: 14/14 on Chromium + WebKit once service workers are blocked in the harness. Organiser/guest sequences scripted in WebKit against live playlists (details in the runbook). Still needs real phones (touch swipes, keyboard, wheels, real audio/radio on iOS/Android/Bluetooth), the house playlist links from the user, and Spotify Premium/YouTube playback.

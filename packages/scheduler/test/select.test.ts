@@ -35,6 +35,34 @@ describe('selectNext', () => {
     const cs = [cand('A', 'salsa', 1), cand('A', 'bachata', 2), cand('A', 'salsa', 3)];
     expect(drain(cs)).toEqual(['A-s1', 'A-b2', 'A-s3']);
   });
+  it('filler songs wait behind requests of the same genre, however old they are', () => {
+    const filler = { priority: 1 };
+    const cs = [
+      cand('seed', 'salsa', 1, filler),
+      cand('seed', 'bachata', 2, filler),
+      cand('seed', 'salsa', 3, filler),
+      cand('A', 'salsa', 4),
+      cand('B', 'bachata', 5),
+    ];
+    const rules = { enabledStyles: ['salsa', 'bachata'], runCaps: { salsa: 1, bachata: 1 } };
+    let h: HistoryState = EMPTY_HISTORY;
+    let rest = cs;
+    const out: string[] = [];
+    for (;;) {
+      const { pick } = selectNext(rest, h, rules);
+      if (!pick) break;
+      out.push(pick.requestId);
+      h = applyPlay(h, pick);
+      rest = rest.filter((c) => c !== pick);
+    }
+    // Requests first, genres still alternating; then the filler in its own order.
+    expect(out).toEqual(['A-s4', 'B-b5', 'seed-s1', 'seed-b2', 'seed-s3']);
+  });
+  it('a filler song still fills a genre turn no request can take', () => {
+    const cs = [cand('seed', 'bachata', 1, { priority: 1 }), cand('A', 'salsa', 2)];
+    const h = applyPlay(applyPlay(EMPTY_HISTORY, cand('X', 'salsa', 0)), cand('X', 'salsa', 0));
+    expect(selectNext(cs, h, RULES).pick?.requestId).toBe('seed-b1');
+  });
   it('no candidates', () => {
     expect(selectNext([], EMPTY_HISTORY, RULES).reason).toBe('NO_CANDIDATES');
   });

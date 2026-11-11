@@ -1,11 +1,21 @@
-import type { AdminRequestView, ExportSnapshot } from '@qroove/contracts';
+import {
+  EVENT_LIMITS,
+  GENRES,
+  STYLE_PRESETS,
+  maxSubmissionLimit,
+  type GenreId,
+  type StyleId,
+} from '@qroove/config';
+import type { AdminRequestView, ExportSnapshot, SettingsBody } from '@qroove/contracts';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { GenreSwatch } from '../shared/Genre';
+import { GenreSwatch, shortGenreLabel, styleBoxVars } from '../shared/Genre';
+import { SwipeRow } from '../shared/SwipeRow';
+import { WheelPicker } from '../shared/WheelPicker';
+import { DURATIONS, RUN_CAPS, limitChoices } from './choices';
 import { ApiError } from '../shared/api';
-import { formatClock, fromLocalInput, pluralise, toLocalInput } from '../shared/time';
+import { formatClock, pluralise } from '../shared/time';
 import { formatCode } from '../shared/code';
-import { RulesList } from '../shared/menu';
 import { ConfirmButton, CopyButton, QrCode } from '../shared/widgets';
 import {
   adminApi,
@@ -121,26 +131,43 @@ export function PlaybackPanel({ s, cmd, refresh }: PanelProps) {
   );
 }
 
+const UPCOMING = new Set([
+  'PENDING_METADATA',
+  'QUEUED',
+  'INELIGIBLE_TEMPORARILY',
+  'RESERVED_NEXT',
+  'OVERFLOW',
+]);
+
+/**
+ * The queue: only what is still to come, in the order it will play, then anything that is waiting
+ * for its turn or for a decision. Swipe a row to the left to remove it (✕ does it in two taps).
+ */
 export function ModerationPanel({ s, cmd, refresh }: PanelProps) {
   const { run, error } = useAction(refresh);
-  const shown = s.requests.filter(
-    (r) => !['WITHDRAWN', 'REJECTED', 'UNAVAILABLE'].includes(r.state),
-  );
-  const started = new Set(['PLAYING', 'PLAYED', 'SKIPPED']);
-  const finished = new Set(['PLAYED', 'SKIPPED']);
+  const byId = new Map(s.requests.map((r) => [r.id, r]));
+  const inOrder = s.view.queue.flatMap((q) => {
+    const r = byId.get(q.requestId);
+    return r && UPCOMING.has(r.state) ? [r] : [];
+  });
+  const seen = new Set(inOrder.map((r) => r.id));
+  const shown = [...inOrder, ...s.requests.filter((r) => UPCOMING.has(r.state) && !seen.has(r.id))];
+  const over = s.view.state === 'ENDED' || s.view.state === 'ARCHIVED';
   const row = (r: AdminRequestView) => (
-    <li key={r.id} className={finished.has(r.state) ? 'done' : undefined}>
+    <SwipeRow
+      key={r.id}
+      className={r.starter ? 'starter' : ''}
+      onRemove={over ? undefined : () => void run(() => cmd.remove(r.id))}
+      removeLabel={`Remove ${r.title}`}
+    >
       <span className="title">{r.title}</span>
       <span className="muted small">
-        {r.artist ? `${r.artist} ` : ''}
-        <GenreSwatch style={r.style} size={14} /> · {r.ownerNickname ?? 'No nickname'} (#
-        {r.ownerLabel})
-      </span>
-      <span className="badge info">
-        {r.possibleDuplicate ? 'Possible duplicate' : r.state.replaceAll('_', ' ').toLowerCase()}
+        <GenreSwatch style={r.style} size={12} /> {r.artist ? `${r.artist} · ` : ''}
+        {r.starter ? 'Starter' : (r.ownerNickname ?? `#${r.ownerLabel}`)}
       </span>
       {r.possibleDuplicate ? (
         <span className="row">
+          <span className="badge info">Possible duplicate</span>
           <button
             type="button"
             className="btn"
@@ -156,86 +183,129 @@ export function ModerationPanel({ s, cmd, refresh }: PanelProps) {
             Reject
           </button>
         </span>
+      ) : r.state === 'INELIGIBLE_TEMPORARILY' || r.state === 'OVERFLOW' ? (
+        <span className="badge warn">
+          {r.state === 'OVERFLOW' ? 'After end time' : 'Waiting for its turn'}
+        </span>
       ) : null}
-      {!started.has(r.state) && s.view.state !== 'ENDED' && s.view.state !== 'ARCHIVED' ? (
-        <ConfirmButton
-          label="Remove"
-          ariaLabel={`Remove ${r.title}`}
-          confirmLabel="Yes, remove"
-          danger
-          onConfirm={() => run(() => cmd.remove(r.id))}
-        />
-      ) : null}
-    </li>
+    </SwipeRow>
   );
   return (
     <section className="queue" aria-label="Queue">
       <ErrorLine error={error} />
       {shown.length === 0 ? (
-        <p className="muted">No requests yet.</p>
+        <p className="muted">No songs waiting.</p>
       ) : (
-        <ul className="list">{shown.map(row)}</ul>
+        <ol className="qlist">{shown.map(row)}</ol>
       )}
-      <p className="muted small">
-        Removing a song that has not started frees the contributor’s slot. Played songs stay on
-        record.
-      </p>
     </section>
   );
 }
 
-export function SchedulePanel({ s, cmd, refresh }: PanelProps) {
+const hm = (min: number) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`;
+
+/**
+ * Everything the organiser may change while the music plays (ADR 0025). Each control saves itself:
+ * turning a wheel or tapping a genre is the whole action.
+ */
+export function SettingsPanel({ s, cmd, refresh }: PanelProps) {
   const { run, busy, error } = useAction(refresh);
-  const [value, setValue] = useState('');
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-  const v = s.view;
-  const ms = fromLocalInput(value);
-  const invalid = value !== '' && (ms === null || ms <= now || (v.endAt !== null && ms <= v.endAt));
-  const live = v.state === 'ACTIVE' || v.state === 'PAUSED';
+  const planned = s.plannedDurationMin ?? EVENT_LIMITS.defaultDurationMin;
+  const seg = s.rules.segments[0]!;
+  const maxLimit = maxSubmissionLimit(planned);
+  const limits = limitChoices(maxLimit);
+  const limit = Math.min(s.rules.submissionLimit, maxLimit);
+  const enabled = new Set<StyleId>(seg.enabledStyles);
+  const on = (g: GenreId) => STYLE_PRESETS.some((p) => p.genre === g && enabled.has(p.id));
+  const save = (body: SettingsBody) => void run(() => cmd.settings(body));
+  function toggle(g: GenreId) {
+    const next = STYLE_PRESETS.filter((p) => (p.genre === g ? !on(g) : enabled.has(p.id))).map(
+      (p) => p.id,
+    );
+    if (next.length > 0) save({ enabledStyles: next });
+  }
+  const only = GENRES.filter((g) => on(g.id)).length === 1;
   return (
-    <section className="card stack" aria-labelledby="sc-h">
-      <h2 id="sc-h">Time</h2>
-      <p>
-        {v.endAt ? (
-          <>
-            Planned end: <strong>{formatClock(v.endAt, v.timezone)}</strong>
-          </>
-        ) : (
-          'No fixed end time.'
-        )}
-      </p>
-      {live ? (
-        <div>
-          <label htmlFor="extend">{v.endAt ? 'Extend until' : 'Set an end time'}</label>
-          <div className="row">
-            <input
-              id="extend"
-              type="datetime-local"
-              value={value}
-              min={toLocalInput(now)}
-              onChange={(e) => setValue(e.target.value)}
-              aria-invalid={invalid}
-            />
-            <button
-              type="button"
-              className="btn"
-              disabled={busy || ms === null || invalid}
-              onClick={() => ms && void run(() => cmd.extend(ms)).then(() => setValue(''))}
-            >
-              {v.endAt ? 'Extend' : 'Set'}
-            </button>
-          </div>
-          {invalid ? (
-            <p className="error">
-              Pick a real time later than {v.endAt ? 'the current end' : 'now'}.
-            </p>
-          ) : null}
+    <section className="stack settings" aria-label="Settings">
+      <div className="params">
+        <div className="drum-cell">
+          <span className="param-label" aria-hidden="true">
+            Event time
+          </span>
+          <WheelPicker
+            label="Event time"
+            values={
+              DURATIONS.includes(planned)
+                ? DURATIONS
+                : [...DURATIONS, planned].sort((a, b) => a - b)
+            }
+            value={planned}
+            format={hm}
+            className="small"
+            onChange={(m) =>
+              save({
+                plannedDurationMin: m,
+                // The per-person ceiling follows the time, so a shorter event may lower the limit.
+                ...(s.rules.submissionLimit > maxSubmissionLimit(m)
+                  ? { submissionLimit: maxSubmissionLimit(m) }
+                  : {}),
+              })
+            }
+          />
         </div>
-      ) : null}
+        <div className="drum-cell">
+          <span className="param-label" aria-hidden="true">
+            Songs in a row
+          </span>
+          <WheelPicker
+            label="Songs in a row"
+            values={
+              RUN_CAPS.includes(seg.masterRunCap) ? RUN_CAPS : [...RUN_CAPS, seg.masterRunCap]
+            }
+            value={seg.masterRunCap}
+            className="small"
+            onChange={(n) => save({ masterRunCap: n })}
+          />
+        </div>
+        <div className="drum-cell">
+          <span className="param-label" aria-hidden="true">
+            Songs per person
+          </span>
+          <WheelPicker
+            label="Songs per person"
+            values={limits.includes(limit) ? limits : [...limits, limit].sort((a, b) => a - b)}
+            value={limit}
+            className="small"
+            onChange={(n) => save({ submissionLimit: n })}
+          />
+        </div>
+      </div>
+      <div className="genre-add" role="group" aria-label="Genres">
+        {GENRES.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            role="checkbox"
+            aria-checked={on(g.id)}
+            disabled={busy || (only && on(g.id))}
+            className={`btn genre-chip${on(g.id) ? ' on' : ''}`}
+            style={styleBoxVars(g.id)}
+            onClick={() => toggle(g.id)}
+          >
+            <span className="swatch" aria-hidden="true" style={{ width: 10, height: 10 }} />
+            {shortGenreLabel(g.id)}
+          </button>
+        ))}
+      </div>
+      <label className="check">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={s.guestsFirst}
+          onChange={(e) => save({ guestsFirst: e.target.checked })}
+        />
+        <span>Guest requests play before starter songs</span>
+      </label>
       <ErrorLine error={error} />
     </section>
   );
@@ -296,20 +366,6 @@ export function HandoverPanel({ s, cmd, refresh, eventId }: PanelProps & { event
         </div>
       ) : null}
       <ErrorLine error={error} />
-    </section>
-  );
-}
-
-export function RulesPanel({ s }: { s: AdminStateResponse }) {
-  const frozen = s.view.state !== 'DRAFT';
-  return (
-    <section className="stack" aria-label="Rules">
-      <p className="muted small">
-        {frozen
-          ? `Locked since the event started. Fingerprint ${s.rulesHash?.slice(0, 12) ?? ''}.`
-          : 'These are locked when you start the event.'}
-      </p>
-      <RulesList rules={s.rules} />
     </section>
   );
 }

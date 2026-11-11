@@ -29,9 +29,12 @@ export function deckStatus(
 export function DeckHeader({
   view,
   connection,
+  codename,
 }: {
   view: EventPublicView;
   connection: Connection;
+  /** The person's own codename at this event, once they have joined. */
+  codename: string | null;
 }) {
   const status = deckStatus(view, connection);
   return (
@@ -41,7 +44,15 @@ export function DeckHeader({
         <span className="logo-badge" aria-hidden="true">
           Q
         </span>
-        <span className="deck-label">Live request deck</span>
+        <span className="deck-label">
+          {codename ? (
+            <>
+              You are <strong className="codename">{codename}</strong>
+            </>
+          ) : (
+            'Live request deck'
+          )}
+        </span>
       </div>
       <span className={`status-pill ${status.tone}`} role="status">
         <span className="live-dot" aria-hidden="true" />

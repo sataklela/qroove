@@ -63,6 +63,7 @@ const state = (over: Record<string, unknown> = {}, viewOver: Record<string, unkn
   rules,
   plannedDurationMin: 120,
   joinUrl: 'http://x/e/ABC123',
+  guestsFirst: true,
   lease: null,
   requests: [
     {
@@ -73,6 +74,7 @@ const state = (over: Record<string, unknown> = {}, viewOver: Record<string, unkn
       style: 'salsa',
       ownerNickname: 'Ana',
       ownerLabel: 'AB12',
+      starter: false,
       acceptedSeq: 1,
       possibleDuplicate: false,
       removedReason: null,
@@ -86,6 +88,7 @@ const state = (over: Record<string, unknown> = {}, viewOver: Record<string, unkn
       style: 'bachata',
       ownerNickname: null,
       ownerLabel: 'CD34',
+      starter: true,
       acceptedSeq: 2,
       possibleDuplicate: true,
       removedReason: null,
@@ -99,6 +102,7 @@ const state = (over: Record<string, unknown> = {}, viewOver: Record<string, unkn
       style: 'salsa',
       ownerNickname: null,
       ownerLabel: 'EF56',
+      starter: false,
       acceptedSeq: 0,
       possibleDuplicate: false,
       removedReason: null,
@@ -631,11 +635,6 @@ describe('AdminPage', () => {
     expect(screen.getByRole('img', { name: /QR code to join Friday Social/ })).toBeInTheDocument();
     // The permanent room code is shown as two triplets, with the QR as a backup.
     expect(screen.getByText('ABC-123')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'More' }));
-    await user.click(screen.getByRole('button', { name: 'Rules' }));
-    expect(screen.getByText(/abcdef012345/)).toBeInTheDocument();
-    expect(screen.getAllByRole('img', { name: 'Bachata' })[0]).toBeInTheDocument(); // rules show swatches
-    expect(screen.getByText(/songs each/)).toHaveTextContent('5');
     expect(document.body.textContent).not.toContain('csrf-token');
   });
 
@@ -675,13 +674,28 @@ describe('AdminPage', () => {
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/admin/skip'))).toBe(true));
   });
 
-  it('removes with confirmation, and resolves a possible duplicate', async () => {
+  it('lists only what is still to come, in play order, with who asked for it', async () => {
+    ok();
+    page();
+    const queue = within(await screen.findByRole('region', { name: 'Queue' }));
+    const rows = queue.getAllByRole('listitem');
+    expect(rows.map((r) => r.querySelector('.title')!.textContent)).toEqual([
+      'Next Song',
+      'Maybe Same',
+    ]);
+    expect(rows[0]).toHaveTextContent('Ana');
+    expect(rows[1]).toHaveTextContent('Starter');
+    expect(queue.queryByText('Old Song')).toBeNull(); // played songs are not in the way
+    expect(queue.queryByText(/frees the contributor/)).toBeNull();
+  });
+
+  it('removes with ✕ then Remove, or one swipe to the left, and resolves a possible duplicate', async () => {
     ok();
     const user = userEvent.setup();
-    page();
+    const { container } = page();
     await user.click(await screen.findByRole('button', { name: 'Remove Next Song' }));
     expect(calls.some((c) => c.url.includes('/admin/remove/'))).toBe(false);
-    await user.click(screen.getByRole('button', { name: 'Yes, remove' }));
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/admin/remove/r1'))).toBe(true));
     await user.click(screen.getByRole('button', { name: 'Distinct' }));
     await waitFor(() =>
@@ -689,7 +703,47 @@ describe('AdminPage', () => {
         decision: 'approve',
       }),
     );
-    expect(screen.queryByRole('button', { name: /Remove Old Song/ })).toBeNull(); // played songs stay
+    const fg = [...container.querySelectorAll<HTMLElement>('.qrow-fg')].find((el) =>
+      el.textContent?.includes('Maybe Same'),
+    )!;
+    fg.getBoundingClientRect = () => ({ width: 300 }) as DOMRect;
+    fireEvent.pointerDown(fg, { clientX: 280, clientY: 10 });
+    fireEvent.pointerMove(fg, { clientX: 260, clientY: 10 });
+    fireEvent.pointerMove(fg, { clientX: 120, clientY: 10 });
+    fireEvent.pointerUp(fg);
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith('/admin/remove/r2'))).toBe(true));
+  });
+
+  it('changes settings while the event runs: each control saves itself', async () => {
+    ok();
+    const user = userEvent.setup();
+    page();
+    await user.click(await screen.findByRole('tab', { name: 'More' }));
+    // Settings are open already: no extra tap.
+    const sent = () => calls.filter((c) => c.url.endsWith('/admin/settings')).map((c) => c.body);
+    const time = screen.getByRole('spinbutton', { name: 'Event time' });
+    expect(time).toHaveAttribute('aria-valuetext', '2:00');
+    time.focus();
+    await user.keyboard('{ArrowUp}');
+    await waitFor(() => expect(sent()).toEqual([{ plannedDurationMin: 90 }]));
+    screen.getByRole('spinbutton', { name: 'Songs in a row' }).focus();
+    await user.keyboard('{ArrowUp}');
+    screen.getByRole('spinbutton', { name: 'Songs per person' }).focus();
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() =>
+      expect(sent().slice(1)).toEqual([{ masterRunCap: 1 }, { submissionLimit: 10 }]),
+    );
+    // Genres are whole genres: switching Cha-cha on adds both of its styles.
+    expect(screen.getByRole('checkbox', { name: 'Salsa' })).toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: 'Cha-cha' }));
+    await waitFor(() =>
+      expect(sent()[3]).toEqual({ enabledStyles: ['salsa', 'bachata', 'chacha', 'chacha_nl'] }),
+    );
+    await user.click(screen.getByRole('switch', { name: /Guest requests play before/ }));
+    await waitFor(() => expect(sent()[4]).toEqual({ guestsFirst: false }));
+    expect(calls.find((c) => c.url.endsWith('/admin/settings'))!.headers['x-qroove-csrf']).toBe(
+      'csrf-token',
+    );
   });
 
   it('ends the event with two distinct clicks and no typing', async () => {
@@ -705,7 +759,7 @@ describe('AdminPage', () => {
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/admin/end'))).toBe(true));
   });
 
-  it('shows a handover link once, and rejects past or non-extending end times', async () => {
+  it('shows a handover link once', async () => {
     ok((c) =>
       c.url.endsWith('/admin/handover')
         ? { body: { code: 'ABCD1234EFGH5678', expiresAt: 600_000 } }
@@ -718,11 +772,6 @@ describe('AdminPage', () => {
     await user.click(screen.getByRole('button', { name: 'Hand over admin' }));
     await user.click(screen.getByRole('button', { name: 'Yes, create a handover link' }));
     expect(await screen.findByText(/\/claim\/ev1#c=ABCD1234EFGH5678/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Time' }));
-    const input = screen.getByLabelText('Set an end time');
-    await user.type(input, '2001-01-01T10:00');
-    expect(screen.getByText(/Pick a real time later than now/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Set' })).toBeDisabled();
   });
 
   it('runs breaks and shows the carry-over list after the event ends', async () => {

@@ -2,11 +2,31 @@
 
 You run an event from your phone. There is no account: control belongs to the browser that created the event (or that took it over by a handover).
 
-## Create an event
+## Start an event: one tap
 
-Open **Create an event** from the home page (`/new`). Everything is set by spinning drums, tapping swatches and
-looking at one bar. There is no name to type: the event gets a generated name of three neutral words, such as
-_Mango Octopus Rye_ ([ADR 0013](/adr/0013-generated-event-names)).
+On the home page, tap **Start an event now**. That is all: you land on the organiser page with the event already
+running, on the defaults.
+
+| Setting          | Default                                                        |
+| ---------------- | -------------------------------------------------------------- |
+| Event time       | 2 hours                                                        |
+| Genres           | Salsa and Bachata (with their non-Latin-compatible styles)     |
+| Songs in a row   | 1 per genre, so Salsa and Bachata alternate                    |
+| Songs per person | 20                                                             |
+| Starter songs    | about 10 Salsa and 10 Bachata from the house playlists, if set |
+
+Every one of these can be changed while the music plays (see _More_ below). The event has no name: it is known by
+its **room code** (`ABC-123`), which stays in the top bar of the organiser page so you can read it out at any time.
+
+**Starter songs** come from two public playlists set by whoever runs the site ([ADR 0027](/adr/0027-starter-songs-guests-first)).
+Guests' requests play before them automatically, as they arrive, within each genre's turn; starter songs fill the
+gaps. If no house playlist is set, the event starts empty and the radio fallback covers the silence.
+
+## Plan in detail (optional)
+
+For an evening with breaks, different genres before and after a break, ratios, or your own playlists, use the small
+**Plan in detail** link under the button (`/new`). Everything is set by spinning drums, tapping swatches and looking
+at one bar.
 
 - **Three drums in a row:** _Total duration_ (0:15, 0:30, 0:45, 1:00, 1:30, 2:00, 2:30, 3:00, 3:30, 4:00, then whole
   hours to 8:00; starts at 2:00), _Songs in a row_ and _Songs per person_. The clock starts when you open the organiser page: the event starts by itself (the **Start event** button is only there if that failed). Pause is there if you want it.
@@ -49,7 +69,8 @@ purpose, use **Hand over** (below) before you leave.
 
 ![The organiser page](/screens/admin-dashboard.png){width=280}
 
-- **Starting the event** (automatic when you open the organiser page) locks the rules. After that nothing on the page changes them.
+- **The event starts by itself** when you open the organiser page. Time, genres, songs in a row and songs per person
+  can still be changed afterwards, under More.
 - **Playback:** what is playing, what is next, the style run, and why the queue is waiting if it is. **Pause**
   keeps the next song reserved; **Resume** carries on. **Skip** (with confirmation) ends the current song; it still
   counts as played for fairness and for its owner's quota.
@@ -58,13 +79,19 @@ purpose, use **Hand over** (below) before you leave.
 
 - **Playing (first page):** now playing, next, the genre run, why the queue is waiting, and the controls: **Start**,
   **Pause** and **Resume** (icons), **Skip** (two taps; it still counts as played) and **Start break / End break**
-  when a break is due. Under them is the queue on its own blue-grey background: every request with its contributor's
-  tag. **Remove** (two taps) frees that person's slot. A song marked _Possible duplicate_ is held until you choose
-  **Distinct** or **Reject**.
+  when a break is due. Under them is the queue on its own blue-grey background: only what is still to come, in the
+  order it will play, each with the guest's codename (or _Starter_). **Swipe a song to the left** to remove it, or
+  tap **✕** and then **Remove**; that frees the guest's slot. A song marked _Possible duplicate_ is held until you
+  choose **Distinct** or **Reject**.
 - **Invite (swipe left):** the permanent room code as two triplets (`ABC-123`) for reading out or typing, and a QR
   code as a non-verbal backup. Both open the same page.
-- **More (swipe again):** the player, **Hand over**, **Time** (extend the end), **Rules** (read-only) and **End the
-  event**.
+- **More (swipe again):** **Settings** is open already: three drums (_Event time_, _Songs in a row_, _Songs per
+  person_), one switch per genre, and _Guest requests play before starter songs_. Each control saves itself the
+  moment you change it; there is no Save button. Switching a genre off keeps its songs waiting, and a shorter time
+  may lower the songs-per-person ceiling (5 for every 15 minutes). **Sound** has the sound check, local files and
+  the radio switch. **Hand over** and **End the event** are beside them.
+
+![Settings on the organiser's More page](/screens/admin-settings.png){width=280}
 
 ## Hand over to someone else
 

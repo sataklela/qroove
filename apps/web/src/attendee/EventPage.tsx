@@ -1,20 +1,16 @@
-import type { MyRequests as Mine } from '@qroove/contracts';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { MyRequests as Mine, RequestView } from '@qroove/contracts';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { api, ApiError, type Creds } from '../shared/api';
 import { useMenuRules } from '../shared/menu';
-import { clearCreds, loadCreds } from '../shared/storage';
+import { formatCode } from '../shared/code';
+import { clearCreds, loadCreds, saveCreds } from '../shared/storage';
 import { useLockedPage } from '../shared/useLockedPage';
 import { useEventStream, useTick } from '../shared/useEventStream';
 import { AddMusic } from './AddMusic';
-import { JoinCard } from './JoinCard';
-import { MyNextSong } from './MyNextSong';
-import { MyRequests } from './MyRequests';
-import { QueueTabs } from './QueueTabs';
 import { DeckHeader } from './DeckHeader';
-import { NextUp } from './NextUp';
+import { GuestQueue } from './GuestQueue';
 import { NowPlaying } from './NowPlaying';
-import { UpNext } from './UpNext';
 
 export function EventPage() {
   const { slug = '' } = useParams();
@@ -59,16 +55,67 @@ export function EventPage() {
   return <Loaded slug={slug} eventId={eventId} />;
 }
 
+/** One join per event at a time, however often the effect runs (React strict mode runs it twice). */
+const joining = new Map<string, Promise<Creds>>();
+function joinOnce(eventId: string): Promise<Creds> {
+  let p = joining.get(eventId);
+  if (!p) {
+    p = api
+      .join(eventId)
+      .then((j) => {
+        const c = { participantId: j.participantId, token: j.token };
+        saveCreds(eventId, c);
+        return c;
+      })
+      .finally(() => joining.delete(eventId));
+    joining.set(eventId, p);
+  }
+  return p;
+}
+
+/**
+ * One fixed screen: what is playing, the queue (the only part that scrolls) and one button to add
+ * a song. Opening the page is joining: nothing to type, nothing to tap.
+ */
 function Loaded({ slug, eventId }: { slug: string; eventId: string }) {
   const { view, connection, error, clockOffset } = useEventStream(eventId, slug);
-  // The deck header carries the connection state, so the top bar shows only the event's name.
-  useMenuRules(view?.rules, view?.name);
+  // The room code is the event's name; the deck header carries the connection state.
+  useMenuRules(view?.rules, formatCode(slug));
   const [creds, setCreds] = useState<Creds | null>(() => loadCreds(eventId));
   const [mine, setMine] = useState<Mine | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [joinError, setJoinError] = useState<ApiError | null>(null);
+  const [joinTry, setJoinTry] = useState(0);
   const now = useTick(1000);
 
   const [tick, setTick] = useState(0);
   const reload = useCallback(() => setTick((t) => t + 1), []);
+
+  useEffect(() => {
+    document.body.classList.add('console');
+    return () => document.body.classList.remove('console');
+  }, []);
+
+  // What just happened shows for a few seconds, then makes room for anything longer-lived.
+  useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(null), 5000);
+    return () => clearTimeout(id);
+  }, [notice]);
+
+  const open = view ? view.state !== 'ENDED' && view.state !== 'ARCHIVED' : false;
+  useEffect(() => {
+    if (creds || !open) return;
+    let live = true;
+    joinOnce(eventId).then(
+      (c) => live && setCreds(c),
+      (e: unknown) => live && setJoinError(e instanceof ApiError ? e : null),
+    );
+    return () => {
+      live = false;
+    };
+  }, [creds, open, eventId, joinTry]);
 
   // Re-read my songs when the event changes, or after one of my own actions.
   const version = view?.version;
@@ -90,8 +137,6 @@ function Loaded({ slug, eventId }: { slug: string; eventId: string }) {
     };
   }, [creds, eventId, version, tick]);
 
-  const mineIds = useMemo(() => new Set((mine?.requests ?? []).map((r) => r.id)), [mine]);
-
   if (!view) {
     return error ? (
       <section className="card" role="alert">
@@ -104,58 +149,100 @@ function Loaded({ slug, eventId }: { slug: string; eventId: string }) {
     );
   }
 
-  const ended = view.state === 'ENDED' || view.state === 'ARCHIVED';
+  const ended = !open;
   const status = ended
     ? 'This event has ended.'
     : view.state === 'DRAFT'
-      ? 'Not started yet. Add your songs now; they play once the organiser starts the event.'
-      : view.state === 'PAUSED' || view.state === 'TRANSFERRING'
-        ? 'Session paused.'
-        : null;
+      ? 'Not started yet. Songs you add play once the organiser starts.'
+      : null;
   const serverNow = now + clockOffset;
-  return (
-    <div className="deck stack">
-      <DeckHeader view={view} connection={connection} />
-      {status ? <p className="muted">{status}</p> : null}
+  const left = mine ? Math.max(0, mine.limit - mine.accepted) : 0;
+  // A song of mine the organiser removed, or that could not be found: say so once, in one line.
+  const lost = (mine?.requests ?? []).filter(
+    (r) => r.state === 'REJECTED' || r.state === 'UNAVAILABLE',
+  );
+  const lostLine = lost.length
+    ? `“${lost[lost.length - 1]!.title}”: ${lost[lost.length - 1]!.statusText ?? 'removed'}.`
+    : null;
 
-      <div className="status-row">
-        <NowPlaying view={view} />
-        <NextUp view={view} serverNow={serverNow} />
-      </div>
-      {creds && mine?.requests.length ? (
-        <MyNextSong view={view} mine={mine} serverNow={serverNow} />
-      ) : null}
+  async function withdraw(r: RequestView) {
+    if (!creds) return;
+    setNotice(null);
+    try {
+      await api.withdraw(eventId, creds, r.id);
+      setNotice(`Withdrew “${r.title}”.`);
+    } catch (e) {
+      setNotice(
+        e instanceof ApiError ? `${e.message} ${e.action}` : 'Could not withdraw that song.',
+      );
+    }
+    reload();
+  }
+
+  return (
+    <div className="deck console">
+      <DeckHeader view={view} connection={connection} codename={mine?.nickname ?? null} />
+      <NowPlaying view={view} />
+      {status ? <p className="muted small deck-line">{status}</p> : null}
+      <GuestQueue
+        view={view}
+        mine={mine}
+        serverNow={serverNow}
+        onWithdraw={(r) => void withdraw(r)}
+      />
+      <p className="deck-line small" role="status">
+        {notice ?? lostLine ?? ''}
+      </p>
       {ended ? null : creds ? (
-        <AddMusic
-          view={view}
-          eventId={eventId}
-          creds={creds}
-          remaining={mine ? Math.max(0, mine.limit - mine.accepted) : 0}
-          quota={mine ? { accepted: mine.accepted, limit: mine.limit } : null}
-          onAdded={reload}
-        />
+        <button
+          type="button"
+          className="btn primary add-bar"
+          disabled={!mine}
+          onClick={() => {
+            setNotice(null);
+            setAdding(true);
+          }}
+        >
+          <span>＋ Add a song</span>
+          {mine ? (
+            <span className="quota" id="add-quota">
+              {mine.accepted} of {mine.limit}
+            </span>
+          ) : null}
+        </button>
+      ) : joinError ? (
+        <button
+          type="button"
+          className="btn primary add-bar"
+          onClick={() => {
+            setJoinError(null);
+            setJoinTry((n) => n + 1);
+          }}
+        >
+          Could not join. Tap to try again
+        </button>
       ) : (
-        <JoinCard eventId={eventId} onJoined={setCreds} />
+        <p className="muted small deck-line" role="status">
+          Joining…
+        </p>
       )}
-      {creds && mine ? (
-        <QueueTabs
-          mineCount={mine.requests.filter((r) => r.state !== 'WITHDRAWN').length}
-          queue={<UpNext view={view} mineIds={mineIds} defaultOpen />}
-          mine={
-            <MyRequests
-              mine={mine}
-              live={view.state === 'ACTIVE'}
-              serverNow={serverNow}
-              onWithdraw={async (r) => {
-                await api.withdraw(eventId, creds, r.id);
-                reload();
-              }}
-            />
-          }
-        />
-      ) : (
-        <UpNext view={view} mineIds={mineIds} />
-      )}
+      {adding && creds ? (
+        <div className="sheet" role="dialog" aria-modal="true" aria-label="Add a song">
+          <AddMusic
+            view={view}
+            eventId={eventId}
+            creds={creds}
+            remaining={left}
+            quota={mine ? { accepted: mine.accepted, limit: mine.limit } : null}
+            onClose={() => setAdding(false)}
+            onAdded={(message) => {
+              setAdding(false);
+              setNotice(message);
+              reload();
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

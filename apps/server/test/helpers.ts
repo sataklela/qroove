@@ -35,8 +35,8 @@ export async function liveEvent(
   return ev;
 }
 
-export async function guest(deps: Deps, eventId: string, nickname?: string) {
-  const j = await joinEvent(deps, { eventId, ...(nickname ? { nickname } : {}) });
+export async function guest(deps: Deps, eventId: string) {
+  const j = await joinEvent(deps, { eventId });
   return { eventId, participantId: j.participantId, token: j.token };
 }
 

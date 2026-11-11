@@ -74,6 +74,8 @@ export const CreateEventBody = z
       .array(PlaylistSong.extend({ style: StyleId }))
       .max(150)
       .optional(),
+    /** Pre-queue a few songs from the house playlists (ignored when `songs` is given). */
+    starter: z.boolean().optional(),
   })
   // Unknown fields (a client-supplied `name`, say) are an error, not silently dropped.
   .strict();
@@ -100,9 +102,14 @@ export type OkResponse = z.infer<typeof OkResponse>;
 export const PublicResponse = EventPublicView;
 
 // POST /api/events/:id/join
-/** A name is required so the organiser can tell who added which song. */
-export const JoinBody = z.object({ nickname: Nickname });
-export const JoinResponse = z.object({ participantId: Id, token: z.string() });
+/** Nobody types a name: the server hands out a codename. A sent `nickname` (old clients) is ignored. */
+export const JoinBody = z.object({ nickname: Nickname.optional() });
+export const JoinResponse = z.object({
+  participantId: Id,
+  token: z.string(),
+  /** Two words, a vegetable and a sea animal, unique within the event. */
+  nickname: z.string(),
+});
 export type JoinResponse = z.infer<typeof JoinResponse>;
 
 // POST /api/events/:id/requests
@@ -136,6 +143,19 @@ export const AdminSessionResponse = z.object({ ok: z.literal(true), csrf: z.stri
 
 // POST /api/events/:id/admin/end-time
 export const EndTimeBody = z.object({ endAt: Ms, expectedVersion: z.number().int().optional() });
+
+// POST /api/events/:id/admin/settings — also while the event is running (ADR 0025)
+export const SettingsBody = z
+  .object({
+    plannedDurationMin: z.number().int().min(15).max(480).multipleOf(15).optional(),
+    enabledStyles: z.array(StyleId).min(1).optional(),
+    masterRunCap: z.number().int().min(1).max(3).optional(),
+    submissionLimit: z.number().int().min(1).max(160).optional(),
+    guestsFirst: z.boolean().optional(),
+    expectedVersion: z.number().int().optional(),
+  })
+  .strict();
+export type SettingsBody = z.infer<typeof SettingsBody>;
 
 // POST /api/events/:id/admin/remove/:rid
 export const RemoveBody = z.object({ reason: z.string().max(200).optional() });
@@ -180,6 +200,8 @@ export const AdminRequestView = z.object({
   ownerNickname: z.string().nullable(),
   /** Short label so the admin can tell contributors apart; not a usable identifier. */
   ownerLabel: z.string(),
+  /** A pre-loaded song (starter playlist, import), not a guest's request. */
+  starter: z.boolean(),
   acceptedSeq: z.number().int(),
   possibleDuplicate: z.boolean(),
   removedReason: z.string().nullable(),
@@ -196,6 +218,8 @@ export const AdminState = z.object({
   rulesHash: z.string().nullable(),
   rules: RulesSnapshot,
   plannedDurationMin: z.number().int().nullable(),
+  /** Guest requests play before starter songs. */
+  guestsFirst: z.boolean(),
   /** The public join link, shown as a QR code (a backup to the typed room code). */
   joinUrl: z.string(),
   /** Only on `GET /admin/state`: the page cannot read the cookie (its path is the API's), so it is echoed here. */

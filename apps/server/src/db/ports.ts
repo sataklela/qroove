@@ -5,7 +5,6 @@ import type {
   EventDoc,
   HandoverOfferDoc,
   IdempotencyDoc,
-  NameLedger,
   YouTubeMatchDoc,
   NewEventBundle,
   PurgeCutoffs,
@@ -64,11 +63,6 @@ export interface Repository {
   getEventPublic(eventId: string): Promise<EventAggregate | null>;
   /** Called after each committed change to the event doc. */
   subscribe(eventId: string, cb: (event: EventDoc) => void): () => void;
-  /**
-   * Atomic read-modify-write of the event-name ledger, so two instances can never hand out the
-   * same name (or consecutive names that share a word).
-   */
-  updateNameLedger<T>(fn: (l: NameLedger) => { ledger: NameLedger; result: T }): Promise<T>;
   /** Match cache keyed by the Spotify track id; shared by all events. */
   getYouTubeMatch(spotifyId: string): Promise<YouTubeMatchDoc | null>;
   putYouTubeMatch(spotifyId: string, match: YouTubeMatchDoc): Promise<void>;

@@ -26,6 +26,9 @@ export function MenuProvider({ children }: { children: ReactNode }) {
 /** "Mango Octopus Rye" -> "mango-octopus-rye". */
 export const nameToken = (name: string) => name.trim().toLowerCase().split(/\s+/).join('-');
 
+/** "ABC-123": shown as it is, big enough to read out across a room. */
+const isRoomCode = (name: string) => /^[0-9A-Z]{3}-[0-9A-Z]{3}$/.test(name);
+
 /** Pages with an event publish its rules and name here, for the header menu and the header name. */
 export function useMenuRules(
   rules: RulesSnapshot | null | undefined,
@@ -45,7 +48,9 @@ export function HeaderEventName() {
   if (!event.name) return <span className="topbar-spacer" />;
   return (
     <div className="event-token">
-      <span aria-hidden="true">{nameToken(event.name)}</span>
+      <span aria-hidden="true" className={isRoomCode(event.name) ? 'room-code-chip' : undefined}>
+        {isRoomCode(event.name) ? event.name : nameToken(event.name)}
+      </span>
       {event.connection ? <ConnectionBadge connection={event.connection} /> : null}
     </div>
   );

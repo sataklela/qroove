@@ -1,4 +1,4 @@
-import type { AdminState, CreateEventBody, ExportSnapshot } from '@qroove/contracts';
+import type { AdminState, CreateEventBody, ExportSnapshot, SettingsBody } from '@qroove/contracts';
 import { request } from '../shared/api';
 
 export interface Created {
@@ -56,6 +56,8 @@ export function commands(id: string, csrf: string) {
     skip: () => post('/admin/skip'),
     end: () => post('/admin/end'),
     extend: (endAt: number) => post('/admin/end-time', { endAt }),
+    /** Time, genres, songs in a row, songs per person, guests first: also while music plays. */
+    settings: (body: SettingsBody) => post('/admin/settings', body),
     remove: (rid: string) => post(`/admin/remove/${rid}`),
     duplicate: (rid: string, decision: 'approve' | 'reject') =>
       post(`/admin/duplicate/${rid}`, { decision }),

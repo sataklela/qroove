@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { ApiError } from '../shared/api';
+import { formatCode } from '../shared/code';
 import { useMenuRules } from '../shared/menu';
 import { useLockedPage } from '../shared/useLockedPage';
 import { PlayerConsole } from '../player/PlayerConsole';
@@ -11,8 +12,7 @@ import {
   HandoverPanel,
   ModerationPanel,
   PlaybackPanel,
-  RulesPanel,
-  SchedulePanel,
+  SettingsPanel,
   SharePanel,
 } from './panels';
 import { ErrorLine } from './useAction';
@@ -36,7 +36,7 @@ function AccessLost({ error }: { error: ApiError }) {
 }
 
 type Page = 'live' | 'invite' | 'more';
-type Sub = 'handover' | 'time' | 'rules' | 'end';
+type Sub = 'settings' | 'sound' | 'handover' | 'end';
 
 const PAGES: Array<[Page, string]> = [
   ['live', 'Playing'],
@@ -46,7 +46,7 @@ const PAGES: Array<[Page, string]> = [
 
 /**
  * A fixed-height console. Swipe sideways between three pages: what is playing with the queue, the
- * QR code to join, and the less-used controls (sound check, hand over, time, rules, end). Only the queue
+ * QR code to join, and the less-used controls (settings, sound check, hand over, end). Only the queue
  * list scrolls vertically, so a swipe never fights a scroll.
  */
 export default function AdminPage() {
@@ -55,7 +55,7 @@ export default function AdminPage() {
   const { state, csrf, connection, error, refresh } = stream;
   const [extrasSlot, setExtrasSlot] = useState<HTMLDivElement | null>(null);
   const [page, setPage] = useState<Page>('live');
-  const [sub, setSub] = useState<Sub | null>(null);
+  const [sub, setSub] = useState<Sub | null>('settings');
   const pager = useRef<HTMLDivElement>(null);
   useLockedPage();
   // The event starts by itself when the organiser's page opens; Pause is there if they want it.
@@ -71,7 +71,8 @@ export default function AdminPage() {
       .then(refresh)
       .catch(() => undefined);
   }, [draft, token, eventId, refresh]);
-  useMenuRules(state?.rules, state?.view.name, connection);
+  // The room code is always in the top bar, so guests can be told it from any page.
+  useMenuRules(state?.rules, state ? formatCode(state.view.slug) : null, connection);
   useEffect(() => {
     document.body.classList.add('console');
     return () => document.body.classList.remove('console');
@@ -88,9 +89,9 @@ export default function AdminPage() {
   const props = { s: state, cmd, refresh };
   const live = v.state === 'ACTIVE' || v.state === 'PAUSED' || v.state === 'TRANSFERRING';
   const SUBS: Array<[Sub, string]> = [
+    ['settings', 'Settings'],
+    ['sound', 'Sound'],
     ['handover', 'Hand over'],
-    ['time', 'Time'],
-    ['rules', 'Rules'],
     ['end', 'End the event'],
   ];
   const go = (i: number) => {
@@ -134,23 +135,25 @@ export default function AdminPage() {
         </section>
         <section className="page more" role="tabpanel" aria-label="More" id="page-more">
           <div className="stack">
-            <div ref={setExtrasSlot} />
             <div className="row">
-              {SUBS.filter(([id]) => (id === 'time' ? live : true)).map(([id, label]) => (
+              {SUBS.filter(([id]) =>
+                id === 'settings' ? !ended : id === 'sound' ? live : true,
+              ).map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
                   className={`btn${sub === id ? ' primary' : ''}`}
                   aria-pressed={sub === id}
-                  onClick={() => setSub(sub === id ? null : id)}
+                  onClick={() => setSub(id)}
                 >
                   {label}
                 </button>
               ))}
             </div>
             {sub === 'handover' ? <HandoverPanel {...props} eventId={eventId} /> : null}
-            {sub === 'time' ? <SchedulePanel {...props} /> : null}
-            {sub === 'rules' ? <RulesPanel s={state} /> : null}
+            {sub === 'settings' && !ended ? <SettingsPanel {...props} /> : null}
+            {/* Always mounted: the player draws its sound check and radio switch into it. */}
+            <div ref={setExtrasSlot} hidden={sub !== 'sound'} />
             {sub === 'end' ? <EndPanel {...props} /> : null}
           </div>
         </section>

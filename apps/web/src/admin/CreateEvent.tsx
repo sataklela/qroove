@@ -25,6 +25,7 @@ import { SongList, type ListSong } from '../shared/SongList';
 import { WheelPicker } from '../shared/WheelPicker';
 import type { PlaylistSong } from '../shared/api';
 import { adminApi, organiserPath } from './adminApi';
+import { DURATIONS, RUN_CAPS, limitChoices } from './choices';
 import { ProgressionFlow } from './ProgressionFlow';
 import { syncedLimit } from './progression';
 import { hm, TimelineBar } from './TimelineBar';
@@ -50,13 +51,6 @@ const copySeg = (s: Seg): Seg => ({
 const orderedStyles = (s: Set<StyleId>) =>
   STYLE_PRESETS.filter((p) => s.has(p.id)).map((p) => p.id);
 
-/** The planned times on offer: quarter hours at first, then whole hours (all valid for the API). */
-const DURATIONS = [15, 30, 45, 60, 90, 120, 150, 180, 210, 240, 300, 360, 420, 480].filter(
-  (m) =>
-    m >= EVENT_LIMITS.minDurationMin &&
-    m <= EVENT_LIMITS.maxDurationMin &&
-    m % EVENT_LIMITS.durationStepMin === 0,
-);
 /** The same two-column layout as the style grid: Latin left, non-Latin directly across. */
 const PLAYLIST_ROWS: StyleId[][] = [
   ['salsa', 'salsa_nl'],
@@ -75,8 +69,6 @@ function interleave<T>(a: readonly T[], b: readonly T[]): T[] {
   }
   return out;
 }
-
-const RUN_CAPS = Array.from({ length: RULE_DEFAULTS.maxNewRunCap }, (_, i) => i + 1);
 
 /** Drops breaks (and merges their parts) until what is left fits the planned time. */
 function fitBreaks(planned: number, breaks: BreakSlot[], segs: Seg[]) {
@@ -102,10 +94,7 @@ export default function CreateEvent() {
   // The ceiling follows the planned time, so shortening the event can lower the choice.
   const maxLimit = maxSubmissionLimit(planned);
   const limit = Math.min(wantedLimit, maxLimit);
-  const limitChoices = Array.from(
-    { length: maxLimit / RULE_DEFAULTS.submissionStep },
-    (_, i) => (i + 1) * RULE_DEFAULTS.submissionStep,
-  );
+  const limits = limitChoices(maxLimit);
   // Playlists: one link per style; their songs go into one list the organiser can sort.
   const [lists, setLists] = useState<Partial<Record<StyleId, string>>>({});
   const [songs, setSongs] = useState<Array<ListSong & { style: StyleId }>>([]);
@@ -285,7 +274,7 @@ export default function CreateEvent() {
             </span>
             <WheelPicker
               label="Songs per person"
-              values={limitChoices}
+              values={limits}
               value={limit}
               onChange={setLimit}
               className="small"

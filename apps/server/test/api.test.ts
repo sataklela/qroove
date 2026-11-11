@@ -39,12 +39,15 @@ async function setup(opts: Parameters<typeof testApp>[0] = {}) {
 describe('joining with the room code', () => {
   it('lets anyone with the permanent room code join, and the QR link is the same public link', async () => {
     const { api, id, created } = await setup();
+    // Nothing to type: an empty body joins and comes back with a codename (a sent name is ignored).
     const ok = await api.call('POST', `/api/events/${id}/join`, { body: { nickname: 'Ana' } });
     expect(ok.status).toBe(200);
-    for (const body of [{}, { nickname: '   ' }]) {
-      const nameless = await api.call('POST', `/api/events/${id}/join`, { body });
-      expect(nameless.status).toBe(400);
-    }
+    expect(ok.json.nickname).not.toBe('Ana');
+    const bare = await api.call('POST', `/api/events/${id}/join`, {});
+    expect(bare.status).toBe(200);
+    expect(bare.json.nickname).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+    expect(bare.json.nickname).not.toBe(ok.json.nickname);
+    expect(created.name).toBe(`${created.slug.slice(0, 3)}-${created.slug.slice(3)}`);
     // The QR code is just a backup for the typed code: it opens the same public page.
     expect(created.joinUrl).toMatch(new RegExp(`/e/${created.slug}$`));
     const st = await api.admin('GET', id, '/admin/state');
@@ -179,11 +182,12 @@ describe('attendees', () => {
     });
     const mine = await api.call('GET', `/api/events/${id}/my-requests`, { auth: g });
     expect(mine.json).toMatchObject({ accepted: 1, limit: 5 });
+    expect(mine.json.nickname).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
     const pub = await api.call('GET', `/api/events/${created.slug.toLowerCase()}/public`);
     expect(pub.status).toBe(200);
     expect(pub.json.queue[0]).toMatchObject({
       title: 'Mi Bachata',
-      ownerNickname: 'Ana',
+      ownerNickname: mine.json.nickname,
       position: 1,
     });
     expect(pub.headers['cache-control']).toBe('no-store');
@@ -601,5 +605,92 @@ describe('SSE stream', () => {
     const [first] = await readEvents(ok, 1);
     expect(first!.data).toHaveProperty('requests');
     expect(first!.data).toHaveProperty('rulesHash');
+  });
+});
+
+describe('one-tap event', () => {
+  const page = (prefix: string) =>
+    new Response(
+      `<html><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+        props: {
+          pageProps: {
+            state: {
+              data: {
+                entity: {
+                  trackList: Array.from({ length: 14 }, (_, i) => ({
+                    uri: `spotify:track:${prefix}${String(i).padStart(21, '0')}`,
+                    title: `${prefix} ${i}`,
+                    subtitle: 'House Band',
+                    duration: 200000,
+                    entityType: 'track',
+                  })),
+                },
+              },
+            },
+          },
+        },
+      })}</script></html>`,
+      { headers: { 'content-type': 'text/html' } },
+    );
+  const env = {
+    STARTER_PLAYLIST_SALSA: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+    STARTER_PLAYLIST_BACHATA: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5N',
+  };
+
+  it('starts with ten songs of each genre from the house playlists and edits settings live', async () => {
+    const f = mockFetch({
+      'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M': () => page('S'),
+      'https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5N': () => page('B'),
+    });
+    const t = await testApp({ fetch: f, env });
+    apps.push(t.app);
+    const made = await t.api.call('POST', '/api/events', {
+      body: { timezone: 'UTC', starter: true },
+    });
+    expect(made.status).toBe(201);
+    expect(made.json.seeded).toBe(20);
+    const id = made.json.eventId as string;
+    await t.api.call('POST', `/api/events/${id}/admin/session`, {
+      body: { secret: new URL(made.json.adminUrl).hash.slice(3) },
+    });
+    await t.api.admin('POST', id, '/start', {});
+    let st = await t.api.admin('GET', id, '/admin/state');
+    expect(st.json.plannedDurationMin).toBe(120);
+    expect(st.json.guestsFirst).toBe(true);
+    const styles = st.json.requests.map((r: any) => r.style);
+    expect(styles.filter((s: string) => s === 'salsa')).toHaveLength(10);
+    expect(styles.filter((s: string) => s === 'bachata')).toHaveLength(10);
+    expect(st.json.requests.every((r: any) => r.starter && r.sourceUrl)).toBe(true);
+    // A second event reuses the cached playlists.
+    const again = await t.api.call('POST', '/api/events', {
+      body: { timezone: 'UTC', starter: true },
+    });
+    expect(again.json.seeded).toBe(20);
+    expect(f.calls).toHaveLength(2);
+
+    const ok = await t.api.admin('POST', id, '/admin/settings', {
+      plannedDurationMin: 180,
+      submissionLimit: 30,
+      guestsFirst: false,
+    });
+    expect(ok.status).toBe(200);
+    st = await t.api.admin('GET', id, '/admin/state');
+    expect(st.json).toMatchObject({ plannedDurationMin: 180, guestsFirst: false });
+    expect(st.json.rules.submissionLimit).toBe(30);
+    const bad = await t.api.admin('POST', id, '/admin/settings', { name: 'x' });
+    expect(bad.status).toBe(400);
+  });
+
+  it('still creates the event when a house playlist cannot be read', async () => {
+    const f = mockFetch({
+      'https://open.spotify.com/embed/playlist/': () => new Response('nope', { status: 500 }),
+    });
+    const t = await testApp({ fetch: f, env });
+    apps.push(t.app);
+    const made = await t.api.call('POST', '/api/events', {
+      body: { timezone: 'UTC', starter: true },
+    });
+    expect(made.status).toBe(201);
+    expect(made.json.seeded).toBe(0);
   });
 });

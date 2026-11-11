@@ -19,6 +19,7 @@ import {
   ResolveLinkBody,
   SubmitRequestBody,
   UpdateDraftBody,
+  SettingsBody,
   VersionedBody,
   songCoverageProblem,
   ResolvePlaylistBody,
@@ -41,6 +42,7 @@ import { SESSION_HEADROOM_MS } from '../domain/commands/import.js';
 import { MAX_SEEDS, type SeedSong } from '../domain/draft.js';
 import { capPlaytime } from '../ingestion/playlist.js';
 import { safeSourceUrl } from '../ingestion/parseLink.js';
+import { mulberry32 } from '../domain/ids.js';
 import { verifyAdmin, verifyParticipant } from '../domain/queries.js';
 import { HOUR, MINUTE } from '../security/rateLimit.js';
 import {
@@ -60,7 +62,7 @@ const ridParams = z.object({ id: Id, rid: Id });
 const bidParams = z.object({ id: Id, bid: Id });
 
 export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
-  const { deps, env, ingestion, youtube, bus, sec, limiter } = ctx;
+  const { deps, env, ingestion, starter, youtube, bus, sec, limiter } = ctx;
   const base = env.PUBLIC_BASE_URL.replace(/\/$/, '');
   const idemKey = (req: FastifyRequest) => {
     const k = req.headers['idempotency-key'];
@@ -206,7 +208,7 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
 
   app.post('/api/events', async (req, reply) => {
     limit(`create:${req.ip}`, 5, HOUR);
-    const { songs, ...given } = parse(CreateEventBody, req.body);
+    const { songs, starter: wantStarter, ...given } = parse(CreateEventBody, req.body);
     const maxLimit = maxSubmissionLimit(
       given.plannedDurationMin ?? EVENT_LIMITS.defaultDurationMin,
     );
@@ -242,7 +244,30 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
       );
       if (problem) throw new DomainError('VALIDATION', problem);
     }
-    const r = await cmd.createEvent(deps, body, { seeds });
+    if (wantStarter && seeds.length === 0) {
+      const styles = (
+        body.segments?.[0]?.enabledStyles ??
+        body.enabledStyles ??
+        DEFAULT_ENABLED_STYLES
+      ).slice();
+      const planned = body.plannedDurationMin ?? EVENT_LIMITS.defaultDurationMin;
+      seeds = await starter.pick(
+        styles,
+        mulberry32(deps.ids.seed()),
+        planned * 60_000 - SESSION_HEADROOM_MS,
+      );
+    }
+    const r = await cmd.createEvent(
+      deps,
+      // A one-tap event has a planned time even when the client sent none.
+      wantStarter
+        ? {
+            ...body,
+            plannedDurationMin: body.plannedDurationMin ?? EVENT_LIMITS.defaultDurationMin,
+          }
+        : body,
+      { seeds },
+    );
     reply.header('cache-control', 'no-store');
     return reply.code(201).send({ ...created(r), seeded: r.seeded });
   });
@@ -373,6 +398,12 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
     return cmd.updateDraft(deps, { ...admin(req, id), ...body });
   });
 
+  app.post('/api/events/:id/admin/settings', async (req) => {
+    const { id } = parse(idParams, req.params);
+    const body = parse(SettingsBody, req.body);
+    return cmd.updateSettings(deps, { ...admin(req, id), ...body, idempotencyKey: idemKey(req) });
+  });
+
   app.post('/api/events/:id/admin/end-time', async (req) => {
     const { id } = parse(idParams, req.params);
     const body = parse(EndTimeBody, req.body);
@@ -430,9 +461,9 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
   app.post('/api/events/:id/join', async (req, reply) => {
     const { id } = parse(idParams, req.params);
     limit(`join:${req.ip}`, 20, MINUTE);
-    const { nickname } = parse(JoinBody, req.body ?? {});
+    parse(JoinBody, req.body ?? {});
     reply.header('cache-control', 'no-store');
-    return cmd.joinEvent(deps, { eventId: id, nickname });
+    return cmd.joinEvent(deps, { eventId: id });
   });
 
   app.post('/api/events/:id/requests', async (req) => {

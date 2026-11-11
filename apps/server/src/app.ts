@@ -14,6 +14,8 @@ import { registerGoogleAuth } from './api/googleAuth.js';
 import { registerSpotifyAuth } from './api/spotifyAuth.js';
 import { parseEnv, type Env } from './env.js';
 import { runPurge, schedulePurge, secretMatches } from './maintenance/purge.js';
+import { STARTER_PLAYLISTS } from '@qroove/config';
+import { createStarter } from './ingestion/starter.js';
 import { createIngestion } from './ingestion/index.js';
 import type { FetchLike } from './ingestion/fetch.js';
 import { EventBus } from './realtime/bus.js';
@@ -154,13 +156,19 @@ export async function buildApp(
         ? undefined
         : limiter.check(key, max, windowMs),
   });
+  const ingestion = createIngestion({ fetch: doFetch, now: () => clock.now(), spotify });
   registerRoutes(app, {
     deps: { repo, clock, ids: randomIds },
     env,
-    ingestion: createIngestion({
-      fetch: doFetch,
+    ingestion,
+    starter: createStarter({
+      resolvePlaylist: (url) => ingestion.resolvePlaylist(url),
       now: () => clock.now(),
-      spotify,
+      playlists: {
+        ...STARTER_PLAYLISTS,
+        ...(env.STARTER_PLAYLIST_SALSA ? { salsa: env.STARTER_PLAYLIST_SALSA } : {}),
+        ...(env.STARTER_PLAYLIST_BACHATA ? { bachata: env.STARTER_PLAYLIST_BACHATA } : {}),
+      },
     }),
     youtube: new YouTubeMatcher(doFetch, env.YOUTUBE_API_KEY, repo, () => clock.now()),
     bus,

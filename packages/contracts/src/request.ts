@@ -24,6 +24,8 @@ export const RequestView = z.object({
 export type RequestView = z.infer<typeof RequestView>;
 
 export const MyRequests = z.object({
+  /** The person's codename at this event. */
+  nickname: z.string().nullable(),
   accepted: z.number().int(),
   limit: z.number().int(),
   requests: z.array(RequestView),

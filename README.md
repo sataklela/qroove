@@ -9,7 +9,7 @@ Fair, collaborative music queues for dance socials.
 
 **Live:** <https://qroove.sataklela.com> · **Docs:** <https://qroove.sataklela.com/docs>
 
-<p align="center"><img src="docs/src/public/screens/attendee-event.png" alt="The attendee view: now playing, up next and a countdown to your next song" width="320"></p>
+<p align="center"><img src="docs/src/public/screens/attendee-event.png" alt="The guest view on one screen: now playing, the queue with your own song marked, and one button to add a song" width="320"></p>
 
 Guests join an event from a QR code, add songs from a link or by title, and a fair scheduler decides the order:
 a per-person song limit, no back-to-back songs from one person, and caps on how long one style can run. The

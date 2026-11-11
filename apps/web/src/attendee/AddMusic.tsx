@@ -15,20 +15,11 @@ let counter = 0;
 const toList = (tracks: readonly PlaylistSong[]): ListSong[] =>
   tracks.map((t) => ({ ...t, id: `p${++counter}` }));
 
-/** "Other (Musicality Exercise)" -> "OTHER". */
-const shout = (label: string) => label.split(' (')[0]!.toUpperCase();
-
-/** "You selected SALSA. Remove all BACHATA, CHA-CHA, OTHER songs." */
-export function genreAdvice(genre: GenreId): string {
-  const label = (id: GenreId) => shout(GENRES.find((g) => g.id === id)!.label);
-  const others = GENRES.filter((g) => g.id !== genre).map((g) => label(g.id));
-  return `You selected ${label(genre)}. Remove all ${others.join(', ')} songs.`;
-}
-
 /**
- * The one place to add music: paste a playlist or song link, pick its genre, sort the songs (drag,
- * swipe left to remove, swipe right to send to the top), then add. Title, artist and length come from
- * the link. Only as many as the person has left can be added, so the rest are greyed out.
+ * The one place to add music: paste a playlist or song link (or search), then tap the genre to add.
+ * Choosing the genre and adding are one tap. A playlist's songs can be sorted first (drag, swipe
+ * left to remove, swipe right to send to the top). Only as many as the person has left can be
+ * added, so the rest are greyed out.
  */
 export function AddMusic({
   view,
@@ -37,6 +28,7 @@ export function AddMusic({
   remaining,
   quota,
   onAdded,
+  onClose,
 }: {
   view: EventPublicView;
   eventId: string;
@@ -45,17 +37,17 @@ export function AddMusic({
   remaining: number;
   /** Accepted songs against the person's limit, once the server has said; null while loading. */
   quota: { accepted: number; limit: number } | null;
-  onAdded: () => void;
+  /** Called with a short message ("2 added.") once songs are in the queue. */
+  onAdded: (message: string) => void;
+  onClose: () => void;
 }) {
   const allowed = view.rules ? allowedStyles(view.rules) : null;
   const styles = STYLE_PRESETS.filter((s) => !allowed || allowed.includes(s.id));
   const genres = GENRES.filter((g) => styles.some((s) => s.genre === g.id));
   const [url, setUrl] = useState('');
   const [songs, setSongs] = useState<ListSong[]>([]);
-  const [picked, setPicked] = useState<GenreId | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
-  const [done, setDone] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   // Playlists added by this person to this event, kept on this device (no server field exists for it).
   const addedKey = `qroove:pl-added:${eventId}:${creds.participantId}`;
@@ -68,35 +60,20 @@ export function AddMusic({
   });
   const [loadedPlaylist, setLoadedPlaylist] = useState<string | null>(null);
   // Must stay stable: PlaylistInput reports tracks from an effect keyed on this function.
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- only uses stable setters
   const onTracks = useCallback((_id: string, tracks: PlaylistSong[]) => {
     setSongs(toList(tracks));
-    // Clearing the field after adding must not wipe the "added" message; loading a new list does.
-    if (tracks.length > 0) {
-      setDone(null);
-      setError(null);
-    }
+    if (tracks.length > 0) setError(null);
   }, []);
 
-  const genre = picked ?? (genres.length === 1 ? genres[0]!.id : null);
-  // Songs are sent under the first style the event allows in that genre.
-  const style = styles.find((s) => s.genre === genre)?.id ?? null;
   const take = Math.min(remaining, songs.length, MAX_BATCH);
-
-  /** What the form can honestly say right now; the server still has the last word on each song. */
-  const banner = !genre
-    ? 'Choose the genre of the music first.'
-    : songs.length === 0
-      ? `Selected ${shout(GENRES.find((g) => g.id === genre)!.label)}. It is played at this event; paste a link or search to add songs.`
-      : genreAdvice(genre);
   const allowance =
-    songs.length === 0
-      ? null
-      : remaining === 0
-        ? 'You have used all your songs for this event. Withdraw one that has not started to add another.'
+    remaining === 0
+      ? 'You have used all your songs for this event. Withdraw one that has not started to add another.'
+      : songs.length === 0
+        ? 'Paste a link or search, then tap the genre to add.'
         : take < songs.length
           ? `Only the first ${take} fit your allowance; the rest are greyed out.`
-          : null;
+          : `Tap the genre of ${take === 1 ? 'this song' : `these ${take} songs`} to add ${take === 1 ? 'it' : 'them'}.`;
 
   async function paste() {
     try {
@@ -114,7 +91,9 @@ export function AddMusic({
     }
   }
 
-  async function add() {
+  /** Songs are sent under the first style the event allows in that genre. */
+  async function add(genre: GenreId) {
+    const style = styles.find((x) => x.genre === genre)?.id;
     if (!style || take === 0) return;
     setBusy(true);
     setError(null);
@@ -134,10 +113,12 @@ export function AddMusic({
         crypto.randomUUID(),
       );
       const dup = r.results.filter((x) => x.status === 'DUPLICATE').length;
-      setDone(`${r.accepted} added${dup ? `, ${dup} already queued` : ''}.`);
+      const full = r.results.filter((x) => x.status === 'QUOTA_FULL').length;
+      const message = `${r.accepted} added${dup ? `, ${dup} already queued` : ''}${
+        full ? `, ${full} over your limit` : ''
+      }.`;
       setUrl('');
       setSongs([]);
-      setPicked(null);
       if (loadedPlaylist && r.accepted > 0) {
         const next = [...new Set([...addedIds, loadedPlaylist])];
         setAddedIds(next);
@@ -148,7 +129,7 @@ export function AddMusic({
         }
       }
       setLoadedPlaylist(null);
-      onAdded();
+      onAdded(message);
     } catch (e) {
       setError(e instanceof ApiError ? e : null);
     } finally {
@@ -157,14 +138,17 @@ export function AddMusic({
   }
 
   return (
-    <section className="card stack" aria-labelledby="am-h">
+    <section className="add-sheet" aria-labelledby="am-h">
       <div className="card-head">
         <h2 id="am-h">Add music</h2>
         {quota ? (
-          <span className="quota" id="add-quota">
-            {quota.accepted} of {quota.limit} accepted songs
+          <span className="quota">
+            {quota.accepted} of {quota.limit} songs
           </span>
         ) : null}
+        <button type="button" className="btn ghost" onClick={onClose}>
+          Close
+        </button>
       </div>
       <div className="row">
         <PlaylistInput
@@ -189,7 +173,6 @@ export function AddMusic({
               : [...old, ...toList([song])],
           );
           setUrl('');
-          setDone(null);
         }}
         addedIds={addedIds}
         onPlaylist={(tracks, id) => {
@@ -214,63 +197,38 @@ export function AddMusic({
           );
         }}
       />
-      <fieldset className="genre-chips">
-        <legend>Which genre?</legend>
-        {genres.map((g) => {
-          const id = styles.find((s) => s.genre === g.id)!.id;
-          return (
-            <label
-              key={g.id}
-              className={`genre-chip${genre === g.id ? ' on' : ''}`}
-              style={styleBoxVars(id)}
-            >
-              <input
-                type="radio"
-                name="music-genre"
-                value={g.id}
-                checked={genre === g.id}
-                onChange={() => setPicked(g.id)}
-              />
-              <span className="swatch" aria-hidden="true" style={{ width: 10, height: 10 }} />
-              {shortGenreLabel(g.id)}
-            </label>
-          );
-        })}
-      </fieldset>
       <p className="validation" role="status">
-        {banner}
+        {allowance}
       </p>
-      {allowance ? <p className="muted small">{allowance}</p> : null}
-      {songs.length > 0 ? (
-        <div ref={listRef}>
+      <div className="add-songs" ref={listRef}>
+        {songs.length > 0 ? (
           <SongList songs={songs} onChange={setSongs} activeCount={take} label="Songs to add" />
-        </div>
-      ) : null}
-      <button
-        type="button"
-        className="btn primary add-btn"
-        disabled={busy || take === 0 || !style}
-        aria-busy={busy}
-        onClick={() => void add()}
-      >
-        {busy
-          ? 'Adding…'
-          : songs.length > 0 && !genre
-            ? 'Choose a genre first'
-            : take > 0
-              ? `Add ${take} ${take === 1 ? 'song' : 'songs'} to queue`
-              : 'Add to queue'}
-      </button>
+        ) : null}
+      </div>
       {error ? (
         <p className="error" role="alert">
           {error.message} {error.action}
         </p>
       ) : null}
-      {done ? (
-        <p className="ok" role="status">
-          {done}
-        </p>
-      ) : null}
+      <div className="genre-add" role="group" aria-label="Add as">
+        {genres.map((g) => {
+          const id = styles.find((x) => x.genre === g.id)!.id;
+          return (
+            <button
+              key={g.id}
+              type="button"
+              className="btn genre-chip on add-as"
+              style={styleBoxVars(id)}
+              disabled={busy || take === 0}
+              aria-busy={busy}
+              onClick={() => void add(g.id)}
+            >
+              <span className="swatch" aria-hidden="true" style={{ width: 10, height: 10 }} />
+              {busy ? 'Adding…' : `Add as ${shortGenreLabel(g.id)}`}
+            </button>
+          );
+        })}
+      </div>
     </section>
   );
 }

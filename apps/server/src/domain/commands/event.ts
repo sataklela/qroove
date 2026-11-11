@@ -1,9 +1,12 @@
 import { hashRules } from '@qroove/contracts/hash';
+import { EVENT_LIMITS, maxSubmissionLimit } from '@qroove/config';
 import {
   DomainError,
   allowedStyles,
+  validateBreaks,
   type CreateEventBody,
   type RulesSnapshot,
+  type StyleId,
 } from '@qroove/contracts';
 import {
   audit,
@@ -24,7 +27,6 @@ import {
   type RuleInput,
   type SeedSong,
 } from '../draft.js';
-import { claimEventName } from '../eventNames.js';
 import { closePlaying, readPlaying, requireLive } from '../lifecycle.js';
 import { breakInProgress } from '../recompute.js';
 
@@ -62,12 +64,9 @@ export async function createEvent(
       throw new DomainError('VALIDATION', 'Imported songs need one of the event’s styles.');
     }
   }
-  // Names are generated, never typed (nothing offensive can get onto a screen), and claimed only
-  // once everything else about the request has been checked.
-  const name = await claimEventName(deps);
+  // No name: an event is known by its room code alone (ADR 0026).
   const { bundle, secrets } = await insertDraft(deps, () => {
     const d = newDraft(deps, {
-      name,
       timezone: body.timezone,
       rules,
       plannedDurationMin: planned,
@@ -116,6 +115,80 @@ export function updateDraft(deps: Deps, input: UpdateDraftInput) {
     e.rules = buildRules(input, e.breaks.length + 1, c.event.rules);
     audit(c, 'draft.update', 'admin');
     return { ok: true as const, version: c.tx.putEvent(e) };
+  });
+}
+
+export interface SettingsInput extends AdminInput {
+  plannedDurationMin?: number | undefined;
+  enabledStyles?: readonly StyleId[] | undefined;
+  masterRunCap?: number | undefined;
+  submissionLimit?: number | undefined;
+  guestsFirst?: boolean | undefined;
+}
+
+/**
+ * The settings an organiser may change at any time before the end, also while music is playing
+ * (ADR 0025): planned time, genres, songs in a row, songs per person, guests first. Styles and the
+ * run cap apply to every part of the evening. Songs already accepted stay: a genre that is switched
+ * off keeps its songs waiting, and a lower per-person limit only stops further additions.
+ */
+export function updateSettings(deps: Deps, input: SettingsInput) {
+  return runCommand(deps, input.eventId, input, async (c) => {
+    await requireAdmin(c.tx, input.adminSecret);
+    const s = c.event.state;
+    if (s === 'ENDED' || s === 'ARCHIVED') throw new DomainError('EVENT_ENDED');
+    const w = await loadWork(c);
+    const e = { ...c.event };
+    const planned = input.plannedDurationMin ?? e.plannedDurationMin;
+    if (input.plannedDurationMin !== undefined) {
+      const problem = validateBreaks(
+        planned,
+        e.breaks.map((b) => ({ startMin: b.startMin, durationMin: b.durationSec / 60 })),
+      );
+      if (problem) throw new DomainError('VALIDATION', problem);
+      if (e.startedAt !== null) {
+        const endAt = e.startedAt + input.plannedDurationMin * 60_000;
+        if (endAt <= c.now) {
+          throw new DomainError('VALIDATION', 'That planned time has already passed.');
+        }
+        e.endAt = endAt;
+      }
+      e.plannedDurationMin = input.plannedDurationMin;
+    }
+    const limit = input.submissionLimit ?? e.rules.submissionLimit;
+    const maxLimit = maxSubmissionLimit(planned ?? EVENT_LIMITS.defaultDurationMin);
+    if (input.submissionLimit !== undefined && limit > maxLimit) {
+      throw new DomainError(
+        'VALIDATION',
+        `Songs per person can be at most ${maxLimit} for this planned time.`,
+      );
+    }
+    const rulesChanged =
+      input.enabledStyles !== undefined ||
+      input.masterRunCap !== undefined ||
+      input.submissionLimit !== undefined;
+    if (rulesChanged) {
+      // Giving both styles and the cap makes `buildRules` rewrite every segment.
+      e.rules = buildRules(
+        {
+          enabledStyles: input.enabledStyles ?? e.rules.segments[0]!.enabledStyles,
+          masterRunCap: input.masterRunCap ?? e.rules.segments[0]!.masterRunCap,
+          submissionLimit: limit,
+        },
+        e.rules.segments.length,
+        e.rules,
+      );
+      if (e.rulesHash !== null) e.rulesHash = hashRules(e.rules);
+    }
+    if (input.guestsFirst !== undefined) e.guestsFirst = input.guestsFirst;
+    w.event = e;
+    audit(c, 'settings.update', 'admin', {
+      from: c.event.rulesHash,
+      to: e.rulesHash,
+      plannedDurationMin: e.plannedDurationMin,
+      guestsFirst: e.guestsFirst !== false,
+    });
+    return { ok: true as const, version: commit(c, w) };
   });
 }
 

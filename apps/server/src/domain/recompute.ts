@@ -8,7 +8,7 @@ import {
   type BreakWindow,
   type Candidate,
 } from '@qroove/scheduler';
-import type { RequestDoc } from '../db/types.js';
+import { SYSTEM_SEED_ID, type RequestDoc } from '../db/types.js';
 import type { Work } from './context.js';
 import {
   fromSchedulerHistory,
@@ -61,6 +61,8 @@ export const breakInProgress = (w: Work) =>
  */
 export function recompute(w: Work, now: number): void {
   const e = w.event;
+  const guestsFirst = e.guestsFirst !== false;
+  const filler = (r: RequestDoc) => Number(guestsFirst && r.ownerId === SYSTEM_SEED_ID);
   const live = e.state === 'ACTIVE' || e.state === 'PAUSED' || e.state === 'TRANSFERRING';
   if (!live) {
     e.reservation = null;
@@ -71,7 +73,7 @@ export function recompute(w: Work, now: number): void {
       e.state === 'DRAFT'
         ? [...w.requests.values()]
             .filter((r) => POOL_STATES.has(r.state))
-            .sort((a, b) => a.acceptedSeq - b.acceptedSeq)
+            .sort((a, b) => filler(a) - filler(b) || a.acceptedSeq - b.acceptedSeq)
             .map((r, i) => ({
               requestId: r.id,
               position: i + 1,
@@ -89,6 +91,7 @@ export function recompute(w: Work, now: number): void {
     return;
   }
 
+  const cand = (r: RequestDoc) => toCandidate(r, guestsFirst);
   const rules = rulesAt(e, now);
   const history = toSchedulerHistory(e.history);
   const overheadMs = RULE_DEFAULTS.transitionOverheadSec * 1000;
@@ -105,7 +108,7 @@ export function recompute(w: Work, now: number): void {
     if (breakInProgress(w)) {
       e.waitingReason = 'On a break';
     } else {
-      const pool: Candidate[] = all.filter((r) => POOL_STATES.has(r.state)).map(toCandidate);
+      const pool: Candidate[] = all.filter((r) => POOL_STATES.has(r.state)).map(cand);
       const { remainingMs, byBreak } = musicWindowMs(e.endAt, windows, now);
       const sel = selectNext(pool, history, rules, { remainingMs });
       if (sel.pick) {
@@ -131,9 +134,7 @@ export function recompute(w: Work, now: number): void {
   }
 
   // Projection: the reservation (if any) is forced first, then the scheduler simulates the rest.
-  const candidates = [...w.requests.values()]
-    .filter((r) => POOL_STATES.has(r.state))
-    .map(toCandidate);
+  const candidates = [...w.requests.values()].filter((r) => POOL_STATES.has(r.state)).map(cand);
   const playingLeft = playing
     ? Math.max(0, playing.startedAt + (playing.durationMs ?? DEFAULT_DURATION_MS) - now)
     : 0;

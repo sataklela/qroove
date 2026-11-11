@@ -60,6 +60,7 @@ export default defineConfig({
           { text: 'Firebase', link: '/runbook/firebase' },
           { text: 'Backup', link: '/runbook/backup' },
           { text: 'Transfer ownership', link: '/runbook/transfer-ownership' },
+          { text: 'Fewest-taps checks', link: '/runbook/fewest-taps-checks' },
         ],
       },
       {
@@ -92,6 +93,12 @@ export default defineConfig({
           { text: '0022 YouTube fallback playback', link: '/adr/0022-youtube-fallback-playback' },
           { text: '0023 Radio fallback', link: '/adr/0023-radio-fallback' },
           { text: '0024 Google YouTube login', link: '/adr/0024-google-youtube-login' },
+          { text: '0025 Live settings', link: '/adr/0025-live-settings' },
+          { text: '0026 Codenames, no event name', link: '/adr/0026-codenames-no-event-name' },
+          {
+            text: '0027 Starter songs, guests first',
+            link: '/adr/0027-starter-songs-guests-first',
+          },
         ],
       },
       {

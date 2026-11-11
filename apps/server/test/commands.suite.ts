@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { hashRules } from '@qroove/contracts/hash';
 import type { Repository } from '../src/db/ports.js';
 import * as cmd from '../src/domain/commands/index.js';
+import { manualKey } from '../src/domain/keys.js';
 import { expectCode, guest, liveEvent, makeDeps, snap, track } from './helpers.js';
 
 /** Domain command behaviour; runs against every adapter. */
@@ -588,8 +589,18 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
 
     it('lets anyone with the room code join, and refuses an ended event', async () => {
       const { deps, ev, admin } = await setup();
-      const j = await cmd.joinEvent(deps, { eventId: ev.eventId, nickname: 'Ana' });
+      const j = await cmd.joinEvent(deps, { eventId: ev.eventId });
       expect(j.participantId).toBeTruthy();
+      // A codename is a vegetable and a sea animal, and nobody else at the event has it.
+      expect(j.nickname).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+      const names = new Set([j.nickname]);
+      for (let i = 0; i < 40; i++) {
+        names.add((await cmd.joinEvent(deps, { eventId: ev.eventId })).nickname);
+      }
+      expect(names.size).toBe(41);
+      expect((await snap(deps, ev.eventId)).event.name).toBe(
+        `${ev.slug.slice(0, 3)}-${ev.slug.slice(3)}`,
+      );
       await cmd.endEvent(deps, admin);
       await expectCode(cmd.joinEvent(deps, { eventId: ev.eventId }), 'EVENT_ENDED');
     });
@@ -887,6 +898,119 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
         await cmd.reportRadioStarted(deps, { ...p.lease, ...B });
         await cmd.setRadioFallback(deps, { ...admin, enabled: false });
         expect((await snap(deps, ev.eventId)).event.radio).toBeNull();
+      });
+    });
+
+    describe('starter songs, guests first and live settings', () => {
+      const SEEDS = [1, 2, 3, 4].map((n) => ({
+        title: `Starter ${n}`,
+        artist: 'House',
+        style: (n % 2 ? 'salsa' : 'bachata') as 'salsa' | 'bachata',
+        durationMs: 180_000,
+        sourceUrl: null,
+      }));
+      async function seeded() {
+        const deps = makeDeps(await make());
+        const ev = await cmd.createEvent(
+          deps,
+          { timezone: 'UTC', masterRunCap: 1, submissionLimit: 5, plannedDurationMin: 120 },
+          { seeds: SEEDS },
+        );
+        const admin = { eventId: ev.eventId, adminSecret: ev.adminSecret };
+        await cmd.startEvent(deps, admin);
+        const order = async () => {
+          const s = await snap(deps, ev.eventId);
+          return s.event.preview.items.map((i) => s.byId(i.requestId).title);
+        };
+        return { deps, ev, admin, order };
+      }
+
+      it('plays guest requests before starter songs, as they arrive', async () => {
+        const { deps, ev, admin, order } = await seeded();
+        // The first starter song is already reserved when the guest arrives.
+        expect(await order()).toEqual(['Starter 1', 'Starter 2', 'Starter 3', 'Starter 4']);
+        const g = await guest(deps, ev.eventId);
+        await cmd.submitRequest(deps, { ...g, style: 'salsa', track: track('g1') });
+        await cmd.submitRequest(deps, { ...g, style: 'bachata', track: track('g2') });
+        expect(await order()).toEqual([
+          'Starter 1',
+          'Song g2',
+          'Song g1',
+          'Starter 2',
+          'Starter 3',
+          'Starter 4',
+        ]);
+        // Switched off, the queue goes back to order of arrival.
+        await cmd.updateSettings(deps, { ...admin, guestsFirst: false });
+        expect(await order()).toEqual([
+          'Starter 1',
+          'Starter 2',
+          'Starter 3',
+          'Starter 4',
+          'Song g1',
+          'Song g2',
+        ]);
+      });
+
+      it('lets a guest take over a waiting starter song instead of refusing a duplicate', async () => {
+        const { deps, ev, order } = await seeded();
+        const g = await guest(deps, ev.eventId);
+        const same = {
+          ...track('x'),
+          title: 'Starter 4',
+          artist: 'House',
+          canonicalKey: manualKey('Starter 4', 'House'),
+        };
+        const r = await cmd.submitRequest(deps, { ...g, style: 'bachata', track: same });
+        const s = await snap(deps, ev.eventId);
+        expect(s.byId(r.request.id).ownerId).toBe(g.participantId);
+        expect(s.requests).toHaveLength(4);
+        expect(await order()).toEqual(['Starter 1', 'Starter 4', 'Starter 3', 'Starter 2']);
+        // It is theirs now: it counts toward their songs and they can withdraw it.
+        await cmd.withdrawRequest(deps, { ...g, requestId: r.request.id });
+        // The reserved starter song cannot be taken over.
+        const first = {
+          ...same,
+          title: 'Starter 1',
+          canonicalKey: manualKey('Starter 1', 'House'),
+        };
+        await expectCode(
+          cmd.submitRequest(deps, { ...g, style: 'salsa', track: first }),
+          'DUPLICATE',
+        );
+      });
+
+      it('changes time, genres, run cap and limit while the event runs', async () => {
+        const { deps, ev, admin, order } = await seeded();
+        const before = (await snap(deps, ev.eventId)).event;
+        await cmd.updateSettings(deps, {
+          ...admin,
+          plannedDurationMin: 60,
+          masterRunCap: 2,
+          submissionLimit: 10,
+        });
+        let e = (await snap(deps, ev.eventId)).event;
+        expect(e.endAt).toBe(e.startedAt! + 60 * 60_000);
+        expect(e.rules.submissionLimit).toBe(10);
+        expect(e.rules.segments[0]!.masterRunCap).toBe(2);
+        expect(e.rulesHash).toBe(hashRules(e.rules));
+        expect(e.rulesHash).not.toBe(before.rulesHash);
+        // Bachata off: its songs stay, waiting; only salsa is projected.
+        await cmd.updateSettings(deps, { ...admin, enabledStyles: ['salsa', 'salsa_nl'] });
+        expect(await order()).toEqual(['Starter 1', 'Starter 3']);
+        e = (await snap(deps, ev.eventId)).event;
+        expect(e.rules.segments[0]!.runCaps).toEqual({ salsa: 2 });
+        await cmd.updateSettings(deps, { ...admin, enabledStyles: ['salsa', 'bachata'] });
+        expect((await order()).length).toBe(4);
+        // Limits: 20 per hour of planned time; a planned time that is already over is refused.
+        await expectCode(cmd.updateSettings(deps, { ...admin, submissionLimit: 25 }), 'VALIDATION');
+        deps.clock.advance(61 * 60_000);
+        await expectCode(
+          cmd.updateSettings(deps, { ...admin, plannedDurationMin: 45 }),
+          'VALIDATION',
+        );
+        await cmd.endEvent(deps, admin);
+        await expectCode(cmd.updateSettings(deps, { ...admin, guestsFirst: true }), 'EVENT_ENDED');
       });
     });
   });
