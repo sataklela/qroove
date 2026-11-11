@@ -14,6 +14,22 @@ Automated only, in headless Chromium at phone size (360×640 and Pixel 8), with 
   tap, withdraw by swipe, organiser remove by swipe, a genre switched on mid-event reaching guests, manual play,
   handover, end, planner with a break, no page scroll with 30 songs queued and with the add sheet open.
 
+## Checked on 2026-11-11 (second session, desktop Playwright)
+
+- Full e2e on **Chromium (Pixel 8) and WebKit (iPhone 15 profile): 14/14**, run with `E2E_WEBKIT=1 pnpm test:e2e`
+  after `pnpm exec playwright install webkit` (and `playwright install-deps webkit` on Linux). WebKit had never run before.
+- Two harness fixes came out of it: `serviceWorkers: 'block'` in `playwright.config.ts` (the PWA's service worker
+  stopped `page.route()` stubs from applying in WebKit), and the flow test now presses **Play the queued song now**
+  when the radio fallback is running (the radio is on by default and held the player for about a minute, which
+  made the test hit its 2-minute limit in CI).
+- With real public playlists as `STARTER_PLAYLIST_SALSA` (Spotify) and `STARTER_PLAYLIST_BACHATA` (YouTube), in WebKit:
+  O1, O2 (20 starters, alternating, each tagged _Starter_), O7 not scripted, O8, O9, O10 (order flips), O11 (no page
+  scroll on any tab), G1–G3 (distinct, stable codenames), G4–G7 (a real Spotify link added in one tap, counter 1 of 20,
+  second in the queue behind the reserved song, codename visible to the organiser), G12.
+- The playlist scrapers still work live: Spotify 54 songs, YouTube 100, Apple Music 50. YouTube titles from a
+  random playlist were messy (artist and title sometimes swapped, "Official Video" suffixes), so choose the house
+  playlists with clean titles and check the first page of the queue.
+
 ## Not yet checked
 
 - Anything on a real iPhone or Android phone: touch swipes, scroll-versus-swipe conflicts in the queue, iOS
@@ -21,7 +37,7 @@ Automated only, in headless Chromium at phone size (360×640 and Pixel 8), with 
 - House playlists against live Spotify / YouTube pages (API tests use a fake network). **No links are set yet**, so a
   one-tap event starts empty.
 - Real playback of starter songs (they need a playable link from the playlist).
-- WebKit / Safari at all.
+- Safari itself (desktop WebKit passes; touch is still not covered).
 
 ## Set up
 

@@ -12,6 +12,8 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
+    // The PWA's service worker would handle fetches before page.route() sees them (WebKit).
+    serviceWorkers: 'block',
     // A machine with its own Chromium (no `playwright install`) can point at it.
     ...(process.env.E2E_CHROMIUM
       ? { launchOptions: { executablePath: process.env.E2E_CHROMIUM } }

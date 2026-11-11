@@ -119,7 +119,13 @@ test('one tap → guests join by opening → add, withdraw → live settings →
   await page.getByRole('tab', { name: 'Playing' }).click();
 
   // Player in manual mode (no local file) ---------------------------------------------------
-  await page.getByRole('button', { name: 'Mark started' }).click();
+  // The radio fallback is on by default and may already be filling the gap; hand over at once
+  // instead of waiting for its track change (about a minute, or the 4-minute cap).
+  const markStarted = page.getByRole('button', { name: 'Mark started' });
+  const playNow = page.getByRole('button', { name: 'Play the queued song now' });
+  await expect(markStarted.or(playNow)).toBeVisible();
+  if (await playNow.isVisible()) await playNow.click();
+  await markStarted.click();
   await expect(page.getByRole('button', { name: 'Mark ended' })).toBeVisible();
   await expect(people[0]!.page.getByText('Song One').first()).toBeVisible();
   await page.getByRole('button', { name: 'Mark ended' }).click();
