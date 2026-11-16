@@ -37,8 +37,11 @@ studio request. You can also pick a file for a single song by hand.
   press **Mark started** and, when it finishes, **Mark ended**. A manually started song counts for fairness
   and duplicates like any other. Qroove never marks a song ended because a timer ran out, and it cannot
   promise ad-free playback for a link.
-- The lock screen and Bluetooth headset buttons can play and pause, and the screen is kept awake while a
-  song plays where the browser allows it.
+- The lock screen and Bluetooth headset buttons can play and pause.
+- **The screen stays on** for as long as this device is the player of a running event: during songs, between
+  them and while the radio plays. It needs the Qroove page to be the one on screen, and the browser to allow
+  it (a phone in battery-saver mode usually refuses, and then the phone's own screen timeout applies). Keep
+  the phone on a charger.
 
 ## Lease and handover
 
@@ -56,6 +59,10 @@ hour-long DJ mixes, which is why the 4-minute limit exists. Guests see "Radio fa
 Radio tracks are not anyone's request and never use anyone's allowance; they can change the genre the
 queue sees as last played but never count toward a run. Stations are listed in `packages/config/src/radio.ts`.
 Only Bachata Sensual Radio is on; see [ADR 0023](/adr/0023-radio-fallback).
+
+A station is a live connection, so it is more fragile than a song when the phone sleeps. If its sound
+stops without an error for about 16 seconds, the player connects to it again by itself; if the browser
+refused to start sound while the page was out of view, it tries once more when you return to the page.
 
 ## Tips
 

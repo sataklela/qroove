@@ -94,3 +94,30 @@ export async function fetchRadioStatus(
 
 /** One play of one station; `live` when the feed gives no start time. */
 export const radioTrackKey = (s: RadioStatus | null): string => s?.startTime ?? 'live';
+
+/**
+ * Watches a live stream for silence. A stream that loses its connection (the phone slept, the
+ * network blinked, another app took the sound) often raises no error: the clock just stops.
+ * `onStall` runs when the position has not moved for two checks in a row, and again after every
+ * two further checks for as long as it stays still. Returns a function that stops the watch.
+ */
+export function watchStall(
+  a: Pick<HTMLMediaElement, 'currentTime'>,
+  everyMs: number,
+  onStall: () => void,
+): () => void {
+  let last = a.currentTime;
+  let still = 0;
+  const id = setInterval(() => {
+    if (a.currentTime !== last) {
+      last = a.currentTime;
+      still = 0;
+      return;
+    }
+    still += 1;
+    if (still < 2) return;
+    still = 0;
+    onStall();
+  }, everyMs);
+  return () => clearInterval(id);
+}

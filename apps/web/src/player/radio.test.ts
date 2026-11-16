@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseRadioStatus, parseZenoEvent, radioTrackKey } from './radio';
+import { describe, expect, it, vi } from 'vitest';
+import { parseRadioStatus, parseZenoEvent, radioTrackKey, watchStall } from './radio';
 
 describe('parseRadioStatus', () => {
   it('reads the documented Radio.co shape', () => {
@@ -49,6 +49,37 @@ describe('parseZenoEvent', () => {
     for (const bad of ['', 'nope', '{}', '{"streamTitle":""}', '{"streamTitle":5}']) {
       const s = parseZenoEvent(bad);
       expect(s).toEqual({ online: false, title: null, startTime: null });
+    }
+  });
+});
+
+describe('watchStall', () => {
+  it('reports a stream whose position stops moving, and keeps quiet while it plays', () => {
+    vi.useFakeTimers();
+    try {
+      const a = { currentTime: 0 };
+      const onStall = vi.fn();
+      const stop = watchStall(a, 1000, onStall);
+      for (let i = 0; i < 5; i += 1) {
+        a.currentTime += 1;
+        vi.advanceTimersByTime(1000);
+      }
+      expect(onStall).not.toHaveBeenCalled();
+      // One still check may be a short buffer gap; two in a row is a stall.
+      vi.advanceTimersByTime(1000);
+      expect(onStall).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1000);
+      expect(onStall).toHaveBeenCalledTimes(1);
+      // Still silent: asked again after two more checks, not on every one.
+      vi.advanceTimersByTime(1000);
+      expect(onStall).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1000);
+      expect(onStall).toHaveBeenCalledTimes(2);
+      stop();
+      vi.advanceTimersByTime(10_000);
+      expect(onStall).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

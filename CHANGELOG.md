@@ -57,6 +57,8 @@ versioning: [SemVer](https://semver.org/).
 
 ### Fixed
 
+- **Radio stopping when the organiser's phone went to sleep.** The screen was kept on only while a queued song played, and the lock was dropped when the song ended, so the phone timed out during radio. The screen now stays on for as long as the device is the player of a running event (songs, gaps and radio), and the lock is taken again whenever the page comes back into view (`player/keepAwake.ts`). A station whose sound stops without an error is reconnected after about 16 seconds (`watchStall`, `RADIO_DEFAULTS.stallCheckMs`), a start the browser refused while the page was hidden is retried on return, and the lock screen shows the station and track. Not yet confirmed on a phone.
+
 - Long-press paste works in fields on organiser, player and event pages.
 
 ### Changed (also)

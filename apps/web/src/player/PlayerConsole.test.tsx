@@ -341,6 +341,19 @@ describe('PlayerConsole radio fallback', () => {
     expect(radioCalls().filter((c) => c.url.endsWith('/radio/started'))).toHaveLength(1);
   });
 
+  it('keeps the screen on while a station plays, not only during songs', async () => {
+    const request = vi.fn(async () => ({ released: false, release: async () => undefined }));
+    Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { request } });
+    try {
+      adminState = radioState(false);
+      open();
+      await screen.findByText(/Radio · Bachata/);
+      expect(request).toHaveBeenCalledWith('screen');
+    } finally {
+      Reflect.deleteProperty(navigator, 'wakeLock');
+    }
+  });
+
   it('gives a waiting guest song priority and hands over on request', async () => {
     adminState = radioState(false);
     const user = userEvent.setup();

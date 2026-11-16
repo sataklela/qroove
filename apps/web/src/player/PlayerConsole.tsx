@@ -6,6 +6,7 @@ import type { AdminStream } from '../admin/useAdminStream';
 import { ErrorLine } from '../admin/useAction';
 import { ApiError } from '../shared/api';
 import { EmbedPlayer } from './EmbedPlayer';
+import { useScreenAwake } from './keepAwake';
 import { RadioFallback } from './RadioFallback';
 import { connectSpotify, fetchSpotifyToken, type SpotifyConnection } from './spotifySdk';
 import { sourceOf, type EmbedFailure, type Source } from './embed';
@@ -95,7 +96,6 @@ export function PlayerConsole({
   const audio = useRef<HTMLAudioElement>(null);
   /** Request the audio element is currently loaded with, and whether the server has been told. */
   const current = useRef<{ id: string; reported: boolean; url: string; src?: Source } | null>(null);
-  const wake = useRef<WakeLockSentinel | null>(null);
 
   const reserved = s?.requests.find((r) => r.state === 'RESERVED_NEXT') ?? null;
   const nowPlaying = s?.view.nowPlaying ?? null;
@@ -151,8 +151,6 @@ export function PlayerConsole({
     setAudioId(null);
     setEmbed(null);
     setAdMuted(false);
-    void wake.current?.release().catch(() => undefined);
-    wake.current = null;
   }, []);
 
   const lose = useCallback(() => {
@@ -360,11 +358,6 @@ export function PlayerConsole({
     c.reported = true;
     try {
       await playerApi.started(eventId, l, c.id, durationMs);
-      try {
-        wake.current = (await navigator.wakeLock?.request('screen')) ?? null;
-      } catch {
-        /* optional */
-      }
     } catch (e) {
       stopAudio();
       if (e instanceof ApiError && e.code === 'STALE_VERSION') {
@@ -456,7 +449,11 @@ export function PlayerConsole({
     }
   }
 
-  // Media Session + wake lock re-acquire (it is released when the tab is hidden).
+  // The screen stays on for as long as this device is the player of a running event: through
+  // songs, the gaps between them and the radio. A phone that sleeps by itself can cut the sound.
+  useScreenAwake(leaseState === 'held' && s?.view.state === 'ACTIVE');
+
+  // Media Session: lock screen and headset buttons.
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.setActionHandler('play', () => void audio.current?.play());
