@@ -78,6 +78,8 @@ export const RADIO_DEFAULTS = {
   /** First choice first. Event rules still decide which genres are allowed. */
   genrePriority: ['salsa', 'bachata', 'other', 'chacha'] as readonly GenreId[],
   statusPollMs: 10_000,
+  /** A playing station whose sound has not moved for two checks this far apart is reconnected. */
+  stallCheckMs: 8000,
   /** The metadata is considered stale (warning only) when it has not answered for this long. */
   metadataStaleMs: 45_000,
   /**

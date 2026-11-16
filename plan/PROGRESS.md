@@ -241,3 +241,12 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 - Tests: scheduler 32, contracts 11, config 6, server 175 (memory) and 59 on the Firestore emulator, web 128, e2e 7 incl. axe. The e2e suite needs `E2E_CHROMIUM=/path/to/chromium` on a machine without `playwright install`.
 - Handover for the next session (browser attached): `docs/src/runbook/fewest-taps-checks.md`.
 - **Second session, 2026-11-11 (desktop Playwright, no phone):** CI's only failure (flow e2e timeout) was the default-on radio holding the player for ~60 s; the test now hands over. WebKit e2e run for the first time: 14/14 on Chromium + WebKit once service workers are blocked in the harness. Organiser/guest sequences scripted in WebKit against live playlists (details in the runbook). Still needs real phones (touch swipes, keyboard, wheels, real audio/radio on iOS/Android/Bluetooth), the house playlist links from the user, and Spotify Premium/YouTube playback.
+
+### Radio sleep fix (2026-11-16)
+
+- Report: with the queue empty and radio on, the organiser's phone timed out and the radio stopped; queued songs survived a locked screen.
+- Found in code: the screen wake lock was taken only in `onPlaying` of a queued song and released in `stopAudio`, so radio ran with none; nothing re-took it after the page was hidden (the comment claimed it); a stalled live stream had no recovery.
+- Done: `player/keepAwake.ts` (`useScreenAwake`, held while lease held and event ACTIVE, re-taken on `visibilitychange`); `watchStall` in `player/radio.ts` reconnects a silent station (`stallCheckMs` 8 s, two checks); `needsTap` cleared when the page is visible again; Media Session metadata for radio.
+- **Not verified:** on any phone. Which step actually cut the sound (page frozen, stream stalled, lease lost) is not known; the wake lock only works while the Qroove page is on screen and is refused in battery-saver mode. If radio still dies with the screen locked by hand, look at the stream stall path and the 30 s lease first.
+- Tests: web +5 (hook 3, stall 1, console 1).
+

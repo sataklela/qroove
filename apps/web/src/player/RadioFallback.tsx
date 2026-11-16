@@ -15,7 +15,7 @@ import {
 import type { EventPublicView } from '@qroove/contracts';
 import { playerApi, setRadioFallback, type LeaseCreds } from '../admin/adminApi';
 import { ApiError } from '../shared/api';
-import { fetchRadioStatus, radioTrackKey, type RadioStatus } from './radio';
+import { fetchRadioStatus, radioTrackKey, watchStall, type RadioStatus } from './radio';
 
 type Phase = 'idle' | 'connecting' | 'playing';
 
@@ -334,6 +334,42 @@ export function RadioFallback({
     }, RADIO_DEFAULTS.statusPollMs);
     return () => clearInterval(id);
   }, [phase, station, reservedId, eventId, lease, handOver, onError, pick, refresh, stop]);
+
+  // A station that has gone quiet without an error (the phone slept, the network blinked, another
+  // app took the sound) is connected again. A real failure still arrives through the element's
+  // error event; a browser that wants a tap first gets the Start radio button.
+  useEffect(() => {
+    const a = audio.current;
+    if (phase !== 'playing' || !station || !a) return;
+    return watchStall(a, RADIO_DEFAULTS.stallCheckMs, () => {
+      a.src = station.streamUrl;
+      a.play().catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          stop(true);
+          setNeedsTap(true);
+        }
+      });
+    });
+  }, [phase, station, stop]);
+
+  // Back on the page: a start the browser refused while it was hidden is tried once more.
+  useEffect(() => {
+    const back = () => {
+      if (document.visibilityState === 'visible') setNeedsTap(false);
+    };
+    document.addEventListener('visibilitychange', back);
+    return () => document.removeEventListener('visibilitychange', back);
+  }, []);
+
+  // The lock screen shows the station and its track, like any other music.
+  const onAirTitle = status?.title ?? null;
+  useEffect(() => {
+    if (phase !== 'playing' || !station || !('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: onAirTitle ?? station.name,
+      artist: onAirTitle ? station.name : '',
+    });
+  }, [phase, station, onAirTitle]);
 
   // The longest a guest song waits for the station's track to end.
   useEffect(() => {
