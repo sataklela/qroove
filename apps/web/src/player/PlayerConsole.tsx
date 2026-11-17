@@ -89,7 +89,6 @@ export function PlayerConsole({
   const [ytIndex, setYtIndex] = useState<Record<string, number>>({});
   /** Requests whose Spotify playback was refused, so YouTube is tried instead. */
   const [spotifyFailed, setSpotifyFailed] = useState<Set<string>>(new Set());
-  const [adMuted, setAdMuted] = useState(false);
   /** A radio station is on: the next guest song waits for its handover (ADR 0023). */
   const [radioHold, setRadioHold] = useState(false);
 
@@ -150,7 +149,6 @@ export function PlayerConsole({
     current.current = null;
     setAudioId(null);
     setEmbed(null);
-    setAdMuted(false);
   }, []);
 
   const lose = useCallback(() => {
@@ -560,13 +558,7 @@ export function PlayerConsole({
           onPlaying={(ms) => void onPlaying(ms)}
           onEnded={() => void onEnded()}
           onFailed={(why) => void onMediaError(why)}
-          onAd={setAdMuted}
         />
-      ) : null}
-      {adMuted ? (
-        <p className="muted small" role="status">
-          Muted until the song starts: adverts play with the sound off.
-        </p>
       ) : null}
       {embed && spotify ? (
         <button
@@ -627,7 +619,7 @@ export function PlayerConsole({
               </p>
             ) : source?.kind === 'youtube' && source.expectedMs !== undefined ? (
               <p className="muted small">
-                This song will play from YouTube. Any advert plays with the sound off.
+                This song will play from YouTube, in YouTube's own player.
               </p>
             ) : source?.kind === 'spotify' && spotifyStatus === 'out' ? (
               <>

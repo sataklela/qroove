@@ -5,6 +5,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- **YouTube advert muting.** The organiser page no longer mutes its output while it guesses an advert is playing, and no longer says adverts play silently. This is required by the YouTube API Services Developer Policies (no interfering with adverts or modifying audio), and testing showed the embedded player served no adverts anyway. ADR 0022 amended.
+
 ### Added
 
 - **Fewest taps (Phase 18).** The whole product was reworked so each action takes the least it can, and no screen scrolls (only the queue list does).

@@ -207,7 +207,7 @@ export const AdminRequestView = z.object({
   removedReason: z.string().nullable(),
   /** The requester's pasted link (admin and player only), for manual playback. */
   sourceUrl: z.string().nullable(),
-  /** The song's real length, so the player can tell it from an advert. */
+  /** The song's real length (from Spotify), reported as the length when it plays from YouTube. */
   durationMs: z.number().int().nullable(),
 });
 export type AdminRequestView = z.infer<typeof AdminRequestView>;

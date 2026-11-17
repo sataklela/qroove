@@ -20,7 +20,6 @@ export function EmbedPlayer({
       onPlaying: (ms) => latest.current.onPlaying(ms),
       onEnded: () => latest.current.onEnded(),
       onFailed: (why) => latest.current.onFailed(why),
-      onAd: (muted) => latest.current.onAd?.(muted),
     };
     // Signed in: the page itself plays, so there is no provider box to show.
     if (spotify && kind === 'spotify') return spotify.play(id, ev);

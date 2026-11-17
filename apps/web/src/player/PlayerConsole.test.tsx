@@ -193,18 +193,6 @@ describe('PlayerConsole with a YouTube match for a Spotify song', () => {
     expect(embedSource).toEqual({ kind: 'youtube', id: 'abcdefghijk', expectedMs: 229_000 });
   });
 
-  it('says so while an advert is muted', async () => {
-    const user = userEvent.setup();
-    open();
-    await ready();
-    await user.click(await screen.findByRole('button', { name: 'Start playing' }));
-    await waitFor(() => expect(embedEvents).not.toBeNull());
-    act(() => embedEvents!.onAd!(true));
-    await screen.findByText(/adverts play with the sound off/);
-    act(() => embedEvents!.onAd!(false));
-    await waitFor(() => expect(screen.queryByText(/Muted until the song starts/)).toBeNull());
-  });
-
   it('tries the next match when the first cannot be embedded, then gives up', async () => {
     const user = userEvent.setup();
     open();

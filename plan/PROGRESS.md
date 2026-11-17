@@ -209,6 +209,7 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 - ADR 0022. Spotify songs play from a matched YouTube video when Spotify cannot play them in full; adverts play out with the page's own output muted (`adGate` in `player/embed.ts`). Server: `ingestion/providers/youtube.ts` (scoring plus API calls), match cache on the `Repository` port (`ytMatch` collection), `GET /api/events/:id/player/youtube/:rid`, `YOUTUBE_API_KEY`. Admin request view now carries `durationMs`.
 - The match is fetched only for the song reserved next (that is the prefetch); nothing is matched when a song is added.
 - **Not verified:** any real YouTube playback or advert behaviour. The sandbox browser gets error 150 for every video, and whether `getDuration()` reports an advert's length (and `getVideoData().video_id` changes) in practice is unproven. Unit tests use a fake player. The 2-minute cap is the safety net. Needs a real-device check with the key set.
+- **Amended 2026-11-17:** advert muting (`adGate`) removed for YouTube API policy compliance (Google's review flagged it); real tests showed no adverts served. The player's audio and adverts are now never touched.
 - **User to do:** create a YouTube Data API v3 key in Google Cloud Console and set `YOUTUBE_API_KEY` on Railway service `web`.
 
 ### Phase 17 — radio fallback (2026-11-05)
