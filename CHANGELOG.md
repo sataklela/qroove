@@ -10,6 +10,11 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Outage, 2026-11-19 15:46:03 to 15:52:30 UTC (about 6½ minutes): every API call that reads Firestore returned 500.** Cause: while the `qroove-server` service account was being granted *Cloud Datastore Owner* (to create a database in `asia-south1`), a change in the Google Cloud console removed the role that gave it read and write access. Firestore answered `PERMISSION_DENIED`, and 22 errors were logged. Restored by granting *Cloud Datastore Owner*, which includes read and write. The static pages and `/api/health` kept answering 200, because health does not touch Firestore. **Lesson:** when changing a service account's roles, add roles; never edit or replace the existing ones. A Firestore-backed health check would have caught this sooner.
+- **Data move to Mumbai not done:** a named database needs a billing-enabled (Blaze) project, and `qroove-sataklela` is on the free Spark plan. The data stays in `eur3` until that is decided.
+
 ### Added
 
 - **`FIRESTORE_DATABASE_ID` (optional).** Names the Firestore database to use; unset means `(default)`. Added 2026-11-19 so the data can move to a database in `asia-south1` (Mumbai) by changing one variable, and move back by removing it.
