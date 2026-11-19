@@ -18,7 +18,7 @@ dedicated VPS. This file is identical in every repo except the **This repo** sec
 | Login | `ssh -i ~/.ssh/sataklela_vps deploy@64.247.186.195` (key only; `deploy` has passwordless sudo and Docker) |
 | Firewall | ufw: 22, 80, 443 only. fail2ban on. |
 | Runtime | Docker Engine + Compose plugin; one Compose project per app under `/srv/<app>/` |
-| Ingress | Caddy (system service). `/etc/caddy/Caddyfile` imports `/etc/caddy/sites/<app>.caddy`, which reverse-proxies to `127.0.0.1:<port>` |
+| Ingress | *(Until 2026-11-19 17:39; now Coolify's Traefik, see "Platform: Coolify")* Caddy (system service). `/etc/caddy/Caddyfile` imports `/etc/caddy/sites/<app>.caddy`, which reverse-proxies to `127.0.0.1:<port>` |
 | TLS | Cloudflare **Origin CA** certificate (`/etc/caddy/certs/origin.pem`, key on the box only), valid until 2041-11-15, covering the apex and `*.` of sataklela.com, artedegoa.com, cvaas.uk, untxt.uk and vangotthis.com. So **every record pointing at the VPS must be proxied** (orange cloud). rajiniskitchen.com was added to Cloudflare on 2026-11-19 and has its own Origin CA cert (`origin-rk.pem`). |
 | Deploys | Pull-based. Private repos are read over SSH with a **read-only deploy key per repo** (`~deploy/.ssh/deploykeys/<app>`, registered on GitHub 2026-11-19 as "VPS deploy (read-only) 64.247.186.195"). Nothing depends on anyone's codespace. `sk-deploy.timer` runs every 2 min and runs `/usr/local/bin/sk-deploy <app>` for each `/srv/*/deploy.conf`: it fetches `main`, builds, restarts, checks health and rolls back if unhealthy. Log: `/var/log/sk-deploy.log`. Private repos need a read-only deploy key (`~deploy/.ssh/deploykeys/<app>`) registered on GitHub. |
 | DNS fix | BigRock's image set `search webhostbox.com` (a wildcard domain) in `/etc/resolv.conf`, so unknown names such as `metadata.google.internal` resolved to a parking server. Removed 2026-11-19; original at `/root/resolv.conf.orig-2026-11-19`. **If a reinstall or BigRock support puts it back, Google SDKs will hang again.** |
@@ -71,6 +71,32 @@ Ports: each app gets a fixed loopback port (see table below). Containers never p
 
 **Rollback**: point DNS back at the Railway target (the old CNAME, recorded in the per-repo
 section below). Railway is untouched until step 7, so rollback is a single DNS edit.
+
+## Platform: Coolify (since 2026-11-19 17:39 UTC)
+
+Every app on the VPS now runs under **Coolify 4.7.6**: https://coolify.sataklela.com (Coolify login with 2FA, rate-limited by Cloudflare; Zero Trust team `sataklela` exists for later use). This replaces the system Caddy, `sk-deploy` and the host crons, which are kept disabled until the 7-day rollback window ends.
+
+| | How it works now |
+|---|---|
+| Build | Coolify builds each repo's `Dockerfile` (added 2026-11-19). Build-time variables reach `RUN` steps as BuildKit secrets ("use build secrets"), except vangotthis, whose Dockerfile takes build args. |
+| Deploy | `cool-poll.timer` (every 2 min) reads `main` with each repo's read-only deploy key and asks Coolify to deploy when it changes. Coolify builds, waits for the health check, and **keeps the old container if the new one is unhealthy**. Log: `/var/log/cool-poll.log`; pause an app by putting its name in `/etc/cool-poll.paused`. GitHub webhooks can replace the poller later. |
+| Rollback | Coolify dashboard → app → Deployments → Rollback, or redeploy an earlier commit. |
+| Proxy and TLS | Coolify's Traefik (`coolify-proxy`) on 80/443 with the Cloudflare Origin CA certificates (`/data/coolify/proxy/certs`, `dynamic/origin-certs.yaml`). Let's Encrypt is never needed: every record is proxied, SSL mode Full (strict). |
+| Firewall | Docker-published ports bypass ufw, so `/etc/ufw/after.rules` adds a `DOCKER-USER` block: 80/443 only from Cloudflare's ranges; Coolify's 8000/6001/6002 and Traefik's 8080 are never reachable from outside. |
+| Crons | Coolify scheduled tasks, run inside the app container: sataklela `ledger` (hourly), `billing` and `retention` (06:00 UTC); UnTXT `ci-frequent` (every 5 min) and `ci-weekly` (Mon 06:30 UTC). History: dashboard → app → Scheduled Tasks. |
+| Stateful | rajiniskitchen.com (WordPress + MariaDB) and the OpenClaw bridge run as Coolify Compose services, using the same data folders (`/srv/rajiniskitchen/{html,db}`, `/srv/openclaw/data`). sataklela's Gotenberg is its own Coolify service, reachable as `doc-converter:3000`. |
+| Backups | `sk-backup` nightly 02:15 UTC (14 days, local): rajiniskitchen DB + wp-content, OpenClaw state, Coolify's database, all config. Off-site copies: not yet. |
+| Billing | Coolify does not meter usage. A separate usage meter will feed sataklela's client billing; until it is live, the three billed Railway projects stay. 2026-11-19 is not billed (decided by Raunak). |
+
+### Switch-over record (2026-11-19, UTC)
+- 17:36–17:38 UnTXT first built in Coolify; the old container was stopped at 17:38:52. **www.untxt.uk was down about 16 s** (17:38:52 to ~17:39:08) because public traffic still went through the old Caddy to the stopped container until the proxy handover.
+- **17:39:03 system Caddy stopped; 17:39:14 Coolify's proxy healthy.** Every other site answered through Coolify by 17:39:22.
+- **rajiniskitchen.com was down about 4 min 13 s** (17:39:03 to 17:43:16): its old stack was reachable only through Caddy, and the first start request for its Coolify service was sent with the wrong HTTP method. Two MariaDB processes must never share a data folder, so the old one was stopped before the new one started.
+- **OpenClaw bridge: Slack bots offline about 5 min** (17:43:26 to 17:48:31): the old gateway's lease row (5-minute TTL) was not released on shutdown, so the new gateway retried until it expired. Same behaviour as on the Railway move.
+- 17:50:40 host crons retired (moved to `/root/retired-crons-2026-11-19`); Coolify ran `ci-frequent` at 17:55 and 18:00 and `ledger` at 18:00, all successful.
+- 18:03 `cool-poll` on, `sk-deploy` off; old containers stopped (not removed).
+- Coolify's dashboard ports were reachable from the internet for about 12 minutes after install (16:38–16:50): Docker bypasses ufw. The admin account already existed and registration was closed; no outside requests were logged. Fixed with the `DOCKER-USER` rules.
+- Browser check after the switch: 12 URLs, no console errors, no failed requests, no broken images.
 
 ## Railway decommissioning (2026-11-19)
 
