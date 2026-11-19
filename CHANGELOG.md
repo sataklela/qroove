@@ -10,6 +10,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`FIRESTORE_DATABASE_ID` (optional).** Names the Firestore database to use; unset means `(default)`. Added 2026-11-19 so the data can move to a database in `asia-south1` (Mumbai) by changing one variable, and move back by removing it.
+
 ### Changed
 
 - **Hosting moved from Railway to the Sataklela VPS on 2026-11-19 at 11:50:36 UTC** (Cloudflare DNS switch; first request served by the VPS at 11:51 UTC). Same commit as Railway at cutover (`4c4ea4c`). `qroove.sataklela.com` is now an A record to `64.247.186.195`, **proxied** through Cloudflare (it was an unproxied CNAME to `jy6odhax.up.railway.app`). TLS at the origin is a Cloudflare Origin CA certificate. The VPS deploys `main` by itself within about 2 minutes of a push (`sk-deploy`). Railway is still running, untouched, as the rollback target. See `docs/src/runbook/deploy.md` and `docs/migration/railway-to-vps.md`.
