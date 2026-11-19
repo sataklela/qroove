@@ -5,6 +5,14 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Hosting moved from Railway to the Sataklela VPS on 2026-11-19 at 11:50:36 UTC** (Cloudflare DNS switch; first request served by the VPS at 11:51 UTC). Same commit as Railway at cutover (`4c4ea4c`). `qroove.sataklela.com` is now an A record to `64.247.186.195`, **proxied** through Cloudflare (it was an unproxied CNAME to `jy6odhax.up.railway.app`). TLS at the origin is a Cloudflare Origin CA certificate. The VPS deploys `main` by itself within about 2 minutes of a push (`sk-deploy`). Railway is still running, untouched, as the rollback target. See `docs/src/runbook/deploy.md` and `docs/migration/railway-to-vps.md`.
+  - **Incidents during the move:** (1) Caddy's first reload failed because a validation run as root created its access log as root; fixed by changing the file's owner. No traffic was affected; it happened before the DNS switch. (2) BigRock's server image set a DNS search domain (`webhostbox.com`) with a wildcard record, so `metadata.google.internal` and any other unknown short name resolved to a BigRock parking server (`64.190.63.222`). Removed from `/etc/resolv.conf` at about 11:55 UTC; the original is kept at `/root/resolv.conf.orig-2026-11-19`.
+  - **Known issue (open): Firestore is slower from the VPS.** The database is in `eur3` (Europe) and the VPS is in Asia (TCP connect: Singapore 76 ms, Amsterdam 191 ms, Washington 275 ms). Each Firestore query takes about 0.4–2.2 s against a few ms from Railway's Netherlands region. The startup retention purge takes about 47 s instead of 6 s. Measured end to end, `GET /api/events/by-slug/…` took 0.6–1.0 s against 0.4–0.46 s through Railway. If guests report slow adds or a laggy queue, check this first.
+  - **What to check if something breaks after the cutover:** `ssh deploy@64.247.186.195`, then `cd /srv/qroove && docker compose logs --since 1h`; `/var/log/sk-deploy.log` (deploys and rollbacks); `/var/log/caddy/access.log`. A request that stops at Cloudflare with a 52x error means the VPS or Caddy is down. During the first 5 minutes after the switch, some clients still used Railway (old TTL 300 s). The two servers have separate in-memory event buses, so live updates could have been split across them during that window.
+  - **Rollback:** in Cloudflare, set `qroove.sataklela.com` back to `CNAME jy6odhax.up.railway.app`, DNS only. Railway keeps deploying `main`, so it stays current.
+
 ### Removed
 
 - **YouTube advert muting.** The organiser page no longer mutes its output while it guesses an advert is playing, and no longer says adverts play silently. This is required by the YouTube API Services Developer Policies (no interfering with adverts or modifying audio), and testing showed the embedded player served no adverts anyway. ADR 0022 amended.

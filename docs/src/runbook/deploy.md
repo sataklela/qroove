@@ -1,15 +1,18 @@
 # Deploy
 
-Qroove runs as one Railway service (one instance, Dockerfile build) behind `qroove.sataklela.com`.
+Qroove runs on the **Sataklela VPS** (`64.247.186.195`) as one Docker Compose service behind Caddy and
+Cloudflare, at `qroove.sataklela.com`. It moved from Railway on **2026-11-19 at 11:50:36 UTC**. Railway still
+runs the same build as a rollback target until it is decommissioned (see "Rollback to Railway" below).
 
 | Item            | Value                                                                    |
 | --------------- | ------------------------------------------------------------------------ |
-| Railway project | `qroove`, environment `production`, service `web`                        |
-| Health check    | `/api/health` (configured in `railway.json`)                             |
+| Host            | VPS `deploy@64.247.186.195`, app dir `/srv/qroove`, port `127.0.0.1:8110` |
+| Health check    | `/api/health` (Compose healthcheck and `sk-deploy` gate)                 |
+| Railway (old)   | `qroove`, environment `production`, service `web`: rollback only        |
 | Database        | Firestore project `qroove-sataklela` (see [Firebase](/runbook/firebase)) |
 | DNS             | [Cloudflare](/runbook/dns-cloudflare)                                    |
 
-## Variables (Railway → service → Variables)
+## Variables (`/srv/qroove/.env` on the VPS, mode 600; Railway keeps a copy)
 
 `NODE_ENV=production`, `PUBLIC_BASE_URL=https://qroove.sataklela.com`, `REPO_DRIVER=firestore`,
 `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_B64`, `COOKIE_SECRET`, `CRON_SECRET`,
@@ -18,11 +21,19 @@ cookies are `Secure` and the same-origin check compares against it.
 
 ## Deploying
 
-- First deploy: `railway up --ci --service web` from the repo root (builds the Dockerfile).
-- Afterwards: connect the GitHub repository to the service in the Railway dashboard (Settings → Source) so
-  pushes to `main` deploy automatically. This needs the owner to authorise the Railway GitHub app once; until
-  then deploy with `railway up`.
-- Roll back from the Railway deployments list (Redeploy an earlier deployment).
+- Push to `main`. A systemd timer on the VPS (`sk-deploy.timer`, every 2 minutes) fetches `main`, builds the
+  image, restarts the service and waits for `/api/health`. If the new build is unhealthy, it puts the previous
+  image back. The log is `/var/log/sk-deploy.log`.
+- Deploy now, or redeploy: `ssh deploy@64.247.186.195 sk-deploy qroove --force`.
+- Logs: `cd /srv/qroove && docker compose logs -f`. Caddy access log: `/var/log/caddy/access.log`.
+- Change a variable: edit `/srv/qroove/.env`, then `docker compose up -d` in `/srv/qroove`. Make the same change
+  on Railway while it is still the rollback target.
+- Railway also still deploys `main` on every push, which keeps the rollback target current.
+
+## Rollback to Railway
+
+In Cloudflare, change `qroove.sataklela.com` back to `CNAME jy6odhax.up.railway.app` with the proxy **off**.
+This is the record as it was before 2026-11-19.
 - The server logs a `retention purge` line at start-up; its presence confirms Firestore access works.
 
 ## Verify a deploy
@@ -44,6 +55,6 @@ curl -sI https://qroove.sataklela.com/docs/changelog  # 200
 5. Phone A: hand over to Phone B (handover link), confirm Phone A is then refused.
 6. End the event; confirm carry-over lists the unplayed songs.
 7. Install the PWA to the home screen on each phone and reopen it.
-8. Check `railway logs` for errors and that no secrets or tokens appear.
+8. Check `docker compose logs` on the VPS for errors and that no secrets or tokens appear.
 
 Results of this checklist are not recorded in the repository; note them in the pilot log.
