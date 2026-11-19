@@ -12,15 +12,15 @@ dedicated VPS. This file is identical in every repo except the **This repo** sec
 
 | | |
 |---|---|
-| Provider | BigRock VPS on Oracle Cloud's network (AS31898). **Located in Asia, probably India**: TCP connect Singapore 76 ms, Amsterdam 191 ms, Washington 275 ms. IP lookup services wrongly report Durham, NC. |
+| Provider | BigRock VPS on Oracle Cloud's network (AS31898), **in Mumbai, India**. TCP connect: AWS Mumbai 6.5 ms, Singapore 76 ms, Europe 130–190 ms, US East 200–275 ms. IP lookup services wrongly report Durham, NC. |
 | IP | `64.247.186.195` |
 | OS | Ubuntu 22.04 LTS, 4 vCPU, 11 GB RAM, 295 GB disk, UTC |
 | Login | `ssh -i ~/.ssh/sataklela_vps deploy@64.247.186.195` (key only; `deploy` has passwordless sudo and Docker) |
 | Firewall | ufw: 22, 80, 443 only. fail2ban on. |
 | Runtime | Docker Engine + Compose plugin; one Compose project per app under `/srv/<app>/` |
 | Ingress | Caddy (system service). `/etc/caddy/Caddyfile` imports `/etc/caddy/sites/<app>.caddy`, which reverse-proxies to `127.0.0.1:<port>` |
-| TLS | Cloudflare **Origin CA** certificate (`/etc/caddy/certs/origin.pem`, key on the box only), valid until 2041-11-15, covering the apex and `*.` of sataklela.com, artedegoa.com, cvaas.uk, untxt.uk and vangotthis.com. So **every record pointing at the VPS must be proxied** (orange cloud). rajiniskitchen.com is not on Cloudflare and needs a different approach (Let's Encrypt). |
-| Deploys | Pull-based. Private repos are read with a short-lived, read-only GitHub App token in `~deploy/.config/sk/gh-token`, until per-repo deploy keys are registered (the org currently has deploy keys disabled on some repos). **That token is refreshed every 50 min by a loop in Raunak's codespace** (`vps-token-push.sh`). If the codespace stops, private-repo deploys stop within an hour; running apps are unaffected. Permanent fix (either one): approve the Central Services app's *Administration: write* permission request on the org installation **and** allow deploy keys in org settings, then register `~deploy/.ssh/deploykeys/<app>.pub` as read-only deploy keys; or run the refresher on the VPS itself. `sk-deploy.timer` runs every 2 min and runs `/usr/local/bin/sk-deploy <app>` for each `/srv/*/deploy.conf`: it fetches `main`, builds, restarts, checks health and rolls back if unhealthy. Log: `/var/log/sk-deploy.log`. Private repos need a read-only deploy key (`~deploy/.ssh/deploykeys/<app>`) registered on GitHub. |
+| TLS | Cloudflare **Origin CA** certificate (`/etc/caddy/certs/origin.pem`, key on the box only), valid until 2041-11-15, covering the apex and `*.` of sataklela.com, artedegoa.com, cvaas.uk, untxt.uk and vangotthis.com. So **every record pointing at the VPS must be proxied** (orange cloud). rajiniskitchen.com was added to Cloudflare on 2026-11-19 and has its own Origin CA cert (`origin-rk.pem`). |
+| Deploys | Pull-based. Private repos are read over SSH with a **read-only deploy key per repo** (`~deploy/.ssh/deploykeys/<app>`, registered on GitHub 2026-11-19 as "VPS deploy (read-only) 64.247.186.195"). Nothing depends on anyone's codespace. `sk-deploy.timer` runs every 2 min and runs `/usr/local/bin/sk-deploy <app>` for each `/srv/*/deploy.conf`: it fetches `main`, builds, restarts, checks health and rolls back if unhealthy. Log: `/var/log/sk-deploy.log`. Private repos need a read-only deploy key (`~deploy/.ssh/deploykeys/<app>`) registered on GitHub. |
 | DNS fix | BigRock's image set `search webhostbox.com` (a wildcard domain) in `/etc/resolv.conf`, so unknown names such as `metadata.google.internal` resolved to a parking server. Removed 2026-11-19; original at `/root/resolv.conf.orig-2026-11-19`. **If a reinstall or BigRock support puts it back, Google SDKs will hang again.** |
 
 Credentials (VPS password, SSH key) are **not** in any repo. Ask Raunak.
@@ -82,7 +82,7 @@ outside market hours).
 ## Latency
 
 **Measured 2026-11-19, and it matters.** Most services run in Railway **europe-west4** (Netherlands) and
-CVaaS and UnTXT in **us-east4**. The VPS is in Asia (see above).
+CVaaS and UnTXT in **us-east4**. The VPS is in Mumbai (see above).
 
 - **Accepted 2026-11-19 (option 3): migrate anyway.**
 - **Firestore apps are hit hardest.** qroove's database is in `eur3`. From the VPS a single query takes
