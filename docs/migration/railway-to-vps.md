@@ -98,6 +98,30 @@ Every app on the VPS now runs under **Coolify 4.7.6**: https://coolify.sataklela
 - Coolify's dashboard ports were reachable from the internet for about 12 minutes after install (16:38–16:50): Docker bypasses ufw. The admin account already existed and registration was closed; no outside requests were logged. Fixed with the `DOCKER-USER` rules.
 - Browser check after the switch: 12 URLs, no console errors, no failed requests, no broken images.
 
+## Control plane: working from a browser (since 2026-11-19)
+
+No codespace is needed any more. Everything runs from a browser against the VPS.
+
+| Page | What it is |
+|---|---|
+| https://control.sataklela.com | **Root terminal** (ttyd, systemd `control-ttyd`). Opens in `/root/sataklela/` with every repo; Node 22, Claude Code, GitHub CLI and the VS Code CLI are installed. Project secrets (`.env`, Central Services keys, `handover/`) are in `/root/sataklela/sataklela/`, root-only and git-ignored. |
+| https://desktop.sataklela.com | Web desktop with Chromium (Coolify service `desktop`), for visual checks. |
+| https://vscode.dev | VS Code connected to the VPS via Remote Tunnels (root's `code-tunnel` user service; lingering enabled so it survives logout/reboot). |
+| https://coolify.sataklela.com | Coolify (own login + 2FA). |
+
+**Two independent locks on control/desktop/auth:**
+1. **Cloudflare Access** (Zero Trust team `sataklela`, app "Sataklela control plane"): one-time code emailed to sataklela@gmail.com; nobody else is allowed. 8-hour session.
+2. **Authelia** (`https://auth.sataklela.com`, Coolify service `authelia`, config `/srv/control/authelia`): username `raunak` + hand-typed password + TOTP. 3 failed attempts → 1-hour ban.
+
+Only after both does the proxy (Traefik, `/data/coolify/proxy/dynamic/control.yaml`) add a secret credential that the terminal and desktop require, so even a container on the shared Docker network cannot open them. The terminal listens only on the internal Docker address `172.17.0.1:7681`. SSH still refuses root password logins.
+
+**Commands (run on the VPS):**
+- `control-set-password`: set the login-page password (typed, never stored in clear).
+- `control-2fa-code`: show the one-time code Authelia "sends" when registering or resetting the authenticator app.
+- `coolify-set-password`: set the Coolify admin password. **Coolify revokes that account's API tokens on every password change**, so automation uses a separate service account (`automation@coolify.sataklela.local`, token in `~deploy/.config/sk/coolify-token`).
+
+**Railway status (2026-11-19 23:00 UTC):** every project deleted except **Axelrod**, which is stopped and kept as the rollback until the Fri 2026-11-20 15:40 ET rebalance succeeds on the VPS.
+
 ## Railway decommissioning (2026-11-19)
 
 Railway projects **deleted** after the site checks passed (a headless Chromium check of all 12 URLs found no console errors, no failed requests and no broken images). Each deletion was checked before and after against the live URL:
