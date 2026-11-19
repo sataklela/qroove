@@ -72,6 +72,25 @@ Ports: each app gets a fixed loopback port (see table below). Containers never p
 **Rollback**: point DNS back at the Railway target (the old CNAME, recorded in the per-repo
 section below). Railway is untouched until step 7, so rollback is a single DNS edit.
 
+## Railway decommissioning (2026-11-19)
+
+Railway projects **deleted** after the site checks passed (a headless Chromium check of all 12 URLs found no console errors, no failed requests and no broken images). Each deletion was checked before and after against the live URL:
+purefab 16:04:46, infinity-ashvamedha 16:05:09, qroove 16:05:27, UnTXT OpenClaw bridge 16:06:04 (its volume was already on the VPS and in the nightly backup), CVaaS UnTXT Ecosystem 16:06:33, sataklela 16:07:02 (all UTC). Their final variables are kept, root-only, at `/var/backups/sataklela/railway-final/railway-final-2026-11-19.tgz` on the VPS. Their `_railway-verify` TXT records were removed.
+
+**Still on Railway:** Axelrod (live trading; it moves at a weekend window), and **artedegoa.com, vangotthis and rajiniskitchen.com**. sataklela's client billing (`lib/billing/railwayUsage.ts`) reads those three projects' Railway usage, so they stay until a VPS usage meter replaces that source. They no longer serve traffic.
+
+## Data locations (2026-11-19)
+
+| App | Data | Location |
+|---|---|---|
+| artedegoa.com | Firestore `mumbai` + bucket `artedegoa-com-mumbai` | asia-south1 (moved 15:10 UTC) |
+| vangotthis | Firestore `mumbai` + bucket `vangotthis-mumbai` | asia-south1 (moved 14:55 / 15:13 UTC) |
+| rajiniskitchen.com | MariaDB on the VPS | Mumbai |
+| qroove | Firestore `(default)` | eur3. **Stays in Europe for now** (a named database needs billing on `qroove-sataklela`) |
+| sataklela, UnTXT, CVaaS | Firestore `(default)` | eur3, by decision |
+
+**Rule: Sataklela Pvt Ltd clients keep all data in India** (see the `demo-site-deploy` skill).
+
 ## Order
 
 Low risk first: qroove, purefab, infinity-ashvamedh, vangotthis → artedegoa.com →
