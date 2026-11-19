@@ -3,6 +3,10 @@
 All notable changes are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [SemVer](https://semver.org/).
 
+## Unreleased
+
+- Privacy page: full Google user data disclosures (access, use, sharing, protection, retention/deletion, Limited Use) for OAuth verification.
+
 ## [Unreleased]
 
 ### Removed

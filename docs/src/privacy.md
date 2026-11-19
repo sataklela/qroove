@@ -25,3 +25,7 @@ read-only.
 
 If an organiser logs in with Spotify, a login token is kept in an encrypted cookie on that device for up to 30 days, and is not stored by Qroove. Searching sends your search words to Spotify. Looking up a song link sends only the song id to Spotify, Apple (iTunes Lookup) or YouTube. Hosting is on
 Railway and the database on Google Cloud Firestore (EU multi-region).
+
+## Google user data
+
+Signing in with Google (scope `youtube.readonly`) is optional and only lets a guest pick songs from their own YouTube playlists. The full disclosures — what is accessed, how it is used, sharing, protection, retention and deletion, and Limited Use compliance — are on the app's [privacy page](https://qroove.sataklela.com/privacy). In short: playlist names and ids, video ids, titles, channel names and lengths are read on request and not stored; the refresh token is sealed (AES-256-GCM) in an HttpOnly cookie on the guest's device for up to 180 days and never stored server-side; nothing is sold or shared.
