@@ -94,6 +94,19 @@ export function YouTubeBrowse({
     }
   }
 
+  async function signOut() {
+    setBusy('logout');
+    setProblem(null);
+    try {
+      await api.googleLogout();
+      setMine(null);
+    } catch (e) {
+      fail(e, 'We could not sign you out. Try again.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <>
       <details className="pl-picker" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
@@ -156,6 +169,18 @@ export function YouTubeBrowse({
               ),
             )}
           </ul>
+        ) : null}
+        {mine !== null ? (
+          <p className="muted small">
+            <button
+              type="button"
+              className="btn ghost"
+              disabled={busy !== null}
+              onClick={() => void signOut()}
+            >
+              {busy === 'logout' ? 'Signing out…' : 'Sign out of Google'}
+            </button>
+          </p>
         ) : null}
       </details>
       {(problem ?? loginProblem) ? (

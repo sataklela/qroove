@@ -64,9 +64,9 @@ export function Privacy() {
           days.
         </li>
         <li>
-          You can remove Qroove’s access at any time at{' '}
-          <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>;
-          the cookie then stops working. Clearing this site’s cookies in your browser deletes it.
+          Tap “Sign out of Google” under My YouTube playlist: we revoke Qroove’s access at Google
+          and delete the cookie straight away. You can also remove Qroove’s access at any time at{' '}
+          <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.
         </li>
         <li>
           Songs you added to a queue stay with that event; ask the organiser, or contact us, to have
@@ -81,8 +81,8 @@ export function Privacy() {
         , including the Limited Use requirements.
       </p>
       <p>
-        Questions or deletion requests: contact {BRAND.company.name} via{' '}
-        <a href={BRAND.company.url}>{BRAND.company.url.replace('https://', '')}</a>.
+        Questions or deletion requests: email{' '}
+        <a href={`mailto:${BRAND.privacyEmail}`}>{BRAND.privacyEmail}</a>.
       </p>
       <p>
         The full details are in the{' '}

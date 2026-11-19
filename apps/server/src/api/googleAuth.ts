@@ -246,6 +246,17 @@ export function registerGoogleAuth(app: FastifyInstance, o: GoogleAuthOptions) {
 
   app.post('/api/google/logout', async (req, reply) => {
     requireSameOrigin(o.sec, req);
+    // Revoke at Google too, so the grant is gone and not just this device's copy of it.
+    const refresh = open(parseCookies(req.headers.cookie)[SESSION_COOKIE]);
+    if (refresh) {
+      await o
+        .doFetch('https://oauth2.googleapis.com/revoke', {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ token: refresh }).toString(),
+        })
+        .catch(() => undefined);
+    }
     reply.header('set-cookie', [cookie(SESSION_COOKIE, '', 0)]);
     return { ok: true };
   });

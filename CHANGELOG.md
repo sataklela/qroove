@@ -6,6 +6,7 @@ versioning: [SemVer](https://semver.org/).
 ## Unreleased
 
 - Privacy page: full Google user data disclosures (access, use, sharing, protection, retention/deletion, Limited Use) for OAuth verification.
+- "Sign out of Google" button under My YouTube playlist; sign-out now also revokes the grant at Google. Privacy contact email added.
 
 ## [Unreleased]
 

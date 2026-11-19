@@ -130,6 +130,7 @@ export const api = {
       signedIn: boolean;
       playlists: Array<{ id: string; name: string }>;
     }>('GET', '/api/google/me/playlists'),
+  googleLogout: () => request<{ ok: boolean }>('POST', '/api/google/logout'),
   myYoutubePlaylist: (id: string) =>
     request<{ tracks: PlaylistSong[] }>('GET', `/api/google/me/playlists/${id}`),
   youtubePlaylists: (channel: string) =>

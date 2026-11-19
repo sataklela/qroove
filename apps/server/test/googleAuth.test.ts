@@ -29,6 +29,7 @@ async function setup(configured = true) {
         if (url.startsWith('https://oauth2.googleapis.com/token')) {
           return json({ access_token: 'access', expires_in: 3600, refresh_token: 'refresh-me' });
         }
+        if (url.startsWith('https://oauth2.googleapis.com/revoke')) return new Response('');
         if (url.includes('/playlists?')) {
           return json({ items: [{ id: 'PLabc', snippet: { title: 'Salsa night' } }] });
         }
@@ -103,6 +104,14 @@ describe('Google sign-in', () => {
         },
       ],
     });
+    const out = await app.inject({
+      method: 'POST',
+      url: '/api/google/logout',
+      headers: { cookie: jar, origin: 'http://localhost:3000' },
+    });
+    expect(out.statusCode).toBe(200);
+    expect(calls.find((c) => c.url.includes('/revoke'))?.body).toBe('token=refresh-me');
+    expect(String(out.headers['set-cookie'])).toContain('qg_session=; ');
   });
 
   it('ignores a callback it did not start and refuses songs when signed out', async () => {
