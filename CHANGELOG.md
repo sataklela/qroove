@@ -12,6 +12,10 @@ versioning: [SemVer](https://semver.org/).
 
 ### Changed
 
+- Hosting moved onto **Coolify** on the Sataklela VPS (2026-11-19; proxy switch 17:39:03 UTC). Coolify builds the repo `Dockerfile`, deploys `main` (triggered by `cool-poll` within about 2 minutes), and keeps the old container if a new one fails its health check. Details and the switch-over record: `docs/migration/railway-to-vps.md` → "Platform: Coolify". No downtime. Data stays in `eur3`.
+
+### Changed
+
 - **curl in the image** for Coolify's health check on the Sataklela VPS (2026-11-19).
 
 ### Fixed
