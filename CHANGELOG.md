@@ -10,6 +10,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **curl in the image** for Coolify's health check on the Sataklela VPS (2026-11-19).
+
 ### Fixed
 
 - **Outage, 2026-11-19 15:46:03 to 15:52:30 UTC (about 6½ minutes): every API call that reads Firestore returned 500.** Cause: while the `qroove-server` service account was being granted *Cloud Datastore Owner* (to create a database in `asia-south1`), a change in the Google Cloud console removed the role that gave it read and write access. Firestore answered `PERMISSION_DENIED`, and 22 errors were logged. Restored by granting *Cloud Datastore Owner*, which includes read and write. The static pages and `/api/health` kept answering 200, because health does not touch Firestore. **Lesson:** when changing a service account's roles, add roles; never edit or replace the existing ones. A Firestore-backed health check would have caught this sooner.
