@@ -2,7 +2,7 @@
 
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
-**Current phase:** — (all phases done; Phase 18 fewest-taps pass added 2026-11-11)
+**Current phase:** 19 — Android app (TWA), planned 2026-11-22, not started
 **Next session starts with:** Phase 18 browser and phone checks: follow `docs/src/runbook/fewest-taps-checks.md` (set-up, sequences O1–O11 and G1–G12 with tap targets, what is and is not verified). Also: put the two house playlist links in `packages/config/src/starter.ts` (or set `STARTER_PLAYLIST_SALSA` / `STARTER_PLAYLIST_BACHATA` on Railway), then try the one-tap flow on two real phones (swipes on iOS and Android). Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, (radio is already on by default, ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
 
 ## Phases
@@ -18,6 +18,7 @@ Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 - [x] 8 — Hardening, e2e, a11y, perf
 - [x] 9 — Deploy (Railway + Cloudflare + Firestore)
 - [x] 10 — Release 0.1.0 + transfer readiness
+- [ ] 19 — Android app (TWA) — see EXECUTION_PLAN Phase 19
 
 ## Decisions made (during planning, 2026-10-29)
 

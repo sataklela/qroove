@@ -611,3 +611,26 @@ Route `/player/:eventId` (admin cookie required to claim lease; separate privile
 4. Final docs review: every page real (no "Documented in Phase N" placeholders: `grep -r "Documented in Phase" docs/src` empty).
 5. Final PROGRESS update: summary + known limitations + pilot validation questions (SPEC §3.3 quota
    interpretation to validate with dancers).
+
+## Phase 19 — Android app (Trusted Web Activity)
+
+**Goal:** Qroove installable from Google Play as an Android app, with no second codebase.
+
+**Decision: TWA (Bubblewrap), not Capacitor / React Native.**
+- The server sets event cookies `SameSite=Strict; Path=/api/events/{id}` and Spotify/Google OAuth cookies on our origin. A TWA runs the real site in Chrome on `qroove.sataklela.com`, so cookies, OAuth redirects, YouTube embeds, Wake Lock and the service worker work unchanged. Capacitor would serve from `https://localhost`, breaking all of that (CORS + cross-site cookies + OAuth redirect URIs).
+- Every web deploy updates the app instantly; Play releases are only needed for manifest/icon/shell changes.
+- Revisit native (Capacitor) only if we need a feature Chrome can't give: background audio with screen off, Android Auto, local media files.
+
+**Steps**
+1. `apps/android/` — Bubblewrap project (`twa-manifest.json` generated from `/manifest.webmanifest`), package id `com.sataklela.qroove` set in `packages/config` (brand string rule). Commit generated Gradle project; keystore stays out of git (`.secrets/`, Play App Signing on).
+2. Web manifest audit: `id`, `start_url`, `scope`, `display: standalone`, maskable 512 icon, `theme_color`/`background_color`, `shortcuts` (Join room, Host). Add screenshots for Play listing.
+3. Server: serve `/.well-known/assetlinks.json` (package id + SHA-256 of the Play upload *and* app-signing certs, from env `ANDROID_CERT_SHA256`, comma-separated). Test it; exempt from CSP/SPA fallback.
+4. Deep links: QR codes / room links (`/r/:code`, `/e/:id`) open the app if installed (intent filters come free from TWA scope). Verify in e2e that link format is unchanged.
+5. Fallback when Chrome is absent: Bubblewrap's WebView fallback disabled → Custom Tab fallback; document.
+6. CI: GitHub Action builds an unsigned AAB (`bubblewrap build` with JDK 17 + Android SDK) on tags; signing done locally or via secret keystore (needs user).
+7. Docs: `docs/src/runbook/android.md` (build, sign, upload, rotate assetlinks), ADR 00xx "Android via TWA", privacy page mentions Play; CHANGELOG.
+8. Play Console (needs user): developer account (Sataklela OÜ, D-U-N-S for org account), listing, content rating, data-safety form (matches Privacy page), internal testing track → closed test with ≥12 testers for 14 days (required for new personal accounts) → production.
+
+**Exit checks:** assetlinks test green; `bubblewrap validate` passes; app on a real Android phone shows no URL bar (verified Digital Asset Links), join via QR opens in app, guest add + host playback + screen-awake work, Spotify/Google login round-trips.
+
+**Needs user:** Play developer account + fee, signing key decision, testers, final listing text/screenshots approval.
