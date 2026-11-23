@@ -57,7 +57,8 @@ function addScript(src: string, reject: (e: Error) => void) {
 }
 
 let youtubeApi: Promise<void> | null = null;
-function loadYouTube(): Promise<void> {
+/** Loads YouTube's player script early, so the first song does not wait for it. */
+export function loadYouTube(): Promise<void> {
   youtubeApi ??= new Promise<void>((resolve, reject) => {
     window.onYouTubeIframeAPIReady = resolve;
     addScript('https://www.youtube.com/iframe_api', reject);
@@ -95,8 +96,19 @@ export function spotifyTracker(ev: EmbedEvents) {
   };
 }
 
-/** Starts the song in `host`. Returns a function that removes the player. */
-export function mountEmbed(host: HTMLElement, source: Source, ev: EmbedEvents): () => void {
+/**
+ * Starts the song in `host`. Returns a function that removes the player.
+ *
+ * With `hold`, the player is loaded and the song cued but not started until `hold` resolves: the
+ * next song is ready in its own player before the current one ends (ADR 0029). Nothing plays or
+ * buffers audio before then; it is the provider's normal cued state.
+ */
+export function mountEmbed(
+  host: HTMLElement,
+  source: Source,
+  ev: EmbedEvents,
+  hold?: Promise<void>,
+): () => void {
   let gone = false;
   let destroy = () => {};
   const el = document.createElement('div');
@@ -112,9 +124,17 @@ export function mountEmbed(host: HTMLElement, source: Source, ev: EmbedEvents): 
         let started = false;
         const player: YtPlayer = new window.YT.Player(el, {
           videoId: source.id,
-          playerVars: { autoplay: 1, playsinline: 1, rel: 0, origin: window.location.origin },
+          playerVars: {
+            autoplay: hold ? 0 : 1,
+            playsinline: 1,
+            rel: 0,
+            origin: window.location.origin,
+          },
           events: {
-            onReady: () => player.playVideo(),
+            onReady: () => {
+              if (!hold) player.playVideo();
+              else void hold.then(() => !gone && player.playVideo());
+            },
             onStateChange: (e: { data: number }) => {
               if (e.data === YT_PLAYING && !started) {
                 started = true;
@@ -143,7 +163,9 @@ export function mountEmbed(host: HTMLElement, source: Source, ev: EmbedEvents): 
       if (e.source !== frame.contentWindow) return;
       if (e.data?.type === 'ready') {
         frame.contentWindow?.postMessage({ command: 'load_complete_ack' }, '*');
-        frame.contentWindow?.postMessage({ command: 'play' }, '*');
+        const play = () => frame.contentWindow?.postMessage({ command: 'play' }, '*');
+        if (!hold) play();
+        else void hold.then(() => !gone && play());
       } else if (e.data?.type === 'playback_update' && e.data.payload) track(e.data.payload);
     };
     window.addEventListener('message', onMessage);

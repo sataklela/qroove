@@ -22,7 +22,7 @@ test('one tap → guests join by opening → add, withdraw → live settings →
   const created = page.waitForResponse(
     (r) => r.url().endsWith('/api/events') && r.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Start an event now' }).click();
+  await page.getByRole('button', { name: 'Host an event' }).click();
   const made = (await (await created).json()) as { adminUrl: string; slug: string };
   expect(made.adminUrl).toContain('#k=');
   await expect(page).toHaveURL(/\/admin\//);

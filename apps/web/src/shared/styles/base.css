@@ -2343,3 +2343,66 @@ body.console .layout main {
   flex: 1 1 auto;
   justify-content: center;
 }
+
+/* ---- icons first, explanations behind (i) (ADR 0029) ------------------------------------------ */
+.btn svg,
+.landing-hint svg,
+.offline-line svg {
+  flex: none;
+  vertical-align: -0.2em;
+}
+.btn {
+  gap: 0.4rem;
+}
+.landing-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.landing-host {
+  font-size: 1.15rem;
+  padding-inline: 1.4rem;
+}
+.landing-actions {
+  align-items: center;
+}
+.info-tip {
+  display: inline-block;
+  position: relative;
+  text-align: left;
+}
+.info-tip > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--muted, inherit);
+  border-radius: 999px;
+}
+.info-tip > summary::-webkit-details-marker {
+  display: none;
+}
+.info-tip[open] > summary {
+  color: var(--accent);
+}
+.info-tip-body {
+  max-width: min(22rem, 80vw);
+  margin: 0.25rem 0 0.5rem;
+}
+.more-options > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.more-options > summary::-webkit-details-marker {
+  display: none;
+}
+.more-options[open] > summary svg {
+  transform: rotate(180deg);
+}
+/* Inside the app there is no browser around the page: no install hints, edge to edge. */
+:root[data-app='android'] .web-only {
+  display: none !important;
+}

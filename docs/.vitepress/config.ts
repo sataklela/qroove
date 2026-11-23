@@ -61,6 +61,7 @@ export default defineConfig({
           { text: 'Backup', link: '/runbook/backup' },
           { text: 'Transfer ownership', link: '/runbook/transfer-ownership' },
           { text: 'Fewest-taps checks', link: '/runbook/fewest-taps-checks' },
+          { text: 'Android app', link: '/runbook/android' },
         ],
       },
       {
@@ -98,6 +99,11 @@ export default defineConfig({
           {
             text: '0027 Starter songs, guests first',
             link: '/adr/0027-starter-songs-guests-first',
+          },
+          { text: '0028 Android app (TWA, superseded)', link: '/adr/0028-android-twa' },
+          {
+            text: '0029 Android app (Capacitor), gapless on a weak network',
+            link: '/adr/0029-android-capacitor',
           },
         ],
       },

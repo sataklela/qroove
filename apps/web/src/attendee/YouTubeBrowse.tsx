@@ -1,3 +1,5 @@
+import { InfoTip } from '../shared/InfoTip';
+import { SignInButton } from '../shared/SignInButton';
 import { useEffect, useState } from 'react';
 import { api, ApiError, type PlaylistSong } from '../shared/api';
 
@@ -112,12 +114,14 @@ export function YouTubeBrowse({
       <details className="pl-picker" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary className="btn pill">My YouTube playlist</summary>
         {mine === null && available ? (
-          <p className="muted small">
-            <a href={`/api/google/login?return=${encodeURIComponent(`/e/${slug}`)}`}>
-              Log in with Google
-            </a>{' '}
-            to use your own playlists, private ones too. We only get read-only access to your
-            playlists.
+          <p className="row">
+            <SignInButton href={`/api/google/login?return=${encodeURIComponent(`/e/${slug}`)}`}>
+              Google
+            </SignInButton>
+            <InfoTip label="About Google sign-in">
+              Sign in to use your own YouTube playlists, private ones too. Qroove only gets
+              read-only access to your playlists. Without signing in: public playlists of a channel.
+            </InfoTip>
           </p>
         ) : null}
         {mine === null ? (
@@ -139,9 +143,6 @@ export function YouTubeBrowse({
               {busy === 'find' ? 'Looking…' : 'Find'}
             </button>
           </form>
-        ) : null}
-        {mine === null ? (
-          <p className="muted small">Without logging in: public playlists of a channel only.</p>
         ) : null}
         {(mine ?? lists)?.length ? (
           <ul className="search-results">

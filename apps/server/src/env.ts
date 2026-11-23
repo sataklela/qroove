@@ -24,6 +24,8 @@ const schema = z.object({
   /** Override the house playlists of `packages/config` (starter songs, ADR 0027). */
   STARTER_PLAYLIST_SALSA: z.string().url().optional(),
   STARTER_PLAYLIST_BACHATA: z.string().url().optional(),
+  /** SHA-256 fingerprints (AA:BB:…) of the Android signing cert(s), comma-separated; enables /.well-known/assetlinks.json. */
+  ANDROID_CERT_SHA256: z.string().optional(),
   RAILWAY_GIT_COMMIT_SHA: z.string().optional(),
   WEB_DIST: z.string().optional(),
   DOCS_DIST: z.string().optional(),

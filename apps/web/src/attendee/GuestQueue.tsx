@@ -34,7 +34,7 @@ export function GuestQueue({
   const live = view.state === 'ACTIVE';
 
   return (
-    <section className="queue guest-queue" aria-labelledby="gq-h">
+    <section className="queue guest-queue" aria-labelledby="gq-h" tabIndex={0}>
       <h2 id="gq-h" className="sr-only">
         Queue
       </h2>

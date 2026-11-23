@@ -58,7 +58,7 @@ Count every tap and swipe. The target is in the last column.
 
 | #   | Do this                                                             | Expect                                                                                                                             | Target            |
 | --- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| O1  | Home page, tap **Start an event now**                               | Organiser page, event already running, room code (`ABC-123`) in the top bar, no name asked, no link or secret shown                | 1 tap             |
+| O1  | Home page, tap **Host an event**                               | Organiser page, event already running, room code (`ABC-123`) in the top bar, no name asked, no link or secret shown                | 1 tap             |
 | O2  | Look at the first page                                              | Player, Pause, and the queue. With playlists set: about 10 Salsa and 10 Bachata, alternating, each marked _Starter_                | 0                 |
 | O3  | Start the first song                                                | One tap if the browser demands a gesture for sound; none after that                                                                | 0–1 tap           |
 | O4  | Swipe to the second page                                            | Room code large, QR code scannable                                                                                                 | 1 swipe           |

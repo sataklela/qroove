@@ -114,6 +114,42 @@ describe('Google sign-in', () => {
     expect(String(out.headers['set-cookie'])).toContain('qg_session=; ');
   });
 
+  it('signs the Android app in through a Custom Tab with a one-time code (ADR 0029)', async () => {
+    const { app } = await setup();
+    const login = await app.inject('/api/google/login?return=/e/ev1&app=1');
+    const state = new URL(login.headers.location as string).searchParams.get('state')!;
+    const cb = await app.inject({
+      url: `/api/google/callback?code=c&state=${state}`,
+      headers: { cookie: cookiesOf(login) },
+    });
+    // The Custom Tab gets no session cookie; it is sent back into the app with a code.
+    const to = cb.headers.location as string;
+    expect(to).toMatch(/^intent:\/\/auth\?code=[\w-]+#Intent;scheme=com\.sataklela\.qroove;/);
+    expect(String(cb.headers['set-cookie'])).not.toMatch(/qg_session=[^;]/);
+    const code = /code=([\w-]+)/.exec(to)![1]!;
+    const redeem = (c: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/app/redeem',
+        headers: { origin: 'http://localhost:3000' },
+        payload: { code: c },
+      });
+    const r = await redeem(code);
+    expect(r.json()).toEqual({ ok: true, back: '/e/ev1' });
+    const jar = cookiesOf(r);
+    expect(jar).toMatch(/qg_session=./);
+    const mine = await app.inject({ url: '/api/google/me/playlists', headers: { cookie: jar } });
+    expect(mine.json()).toMatchObject({ signedIn: true });
+    expect((await redeem(code)).json()).toEqual({ ok: false, back: null }); // once only
+    const cross = await app.inject({
+      method: 'POST',
+      url: '/api/app/redeem',
+      headers: { origin: 'https://evil.example' },
+      payload: { code },
+    });
+    expect(cross.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
   it('ignores a callback it did not start and refuses songs when signed out', async () => {
     const { app } = await setup();
     const cb = await app.inject('/api/google/callback?code=c&state=forged');

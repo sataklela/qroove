@@ -191,7 +191,10 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
       let s = await snap(deps, ev.eventId);
       expect(s.event.history.playedKeys).toEqual(['spotify:track:1']);
       expect(s.event.nowPlaying?.requestId).toBe(s1.request.id);
-      expect(s.event.reservation).toBeNull(); // nothing is reserved while a song plays
+      // The next song is reserved while this one plays (ADR 0029), so the player can prepare it.
+      expect(s.event.reservation?.requestId).toBe(s2.request.id);
+      expect(s.event.preview.items[0]?.requestId).toBe(s2.request.id);
+      expect(s.event.waitingReason).toBeNull();
       await p.finish(s1.request.id);
       s = await snap(deps, ev.eventId);
       expect(s.state(s1.request.id)).toBe('PLAYED');
@@ -202,6 +205,81 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
       await p.finish(s2.request.id);
       s = await snap(deps, ev.eventId);
       expect(s.event.reservation?.requestId).toBe(b1.request.id);
+    });
+
+    it('takes late reports from a player that went on through a network drop (ADR 0029)', async () => {
+      const { deps, ev, submit, player } = await setup();
+      const gs = [];
+      for (let i = 0; i < 4; i++) gs.push(await guest(deps, ev.eventId));
+      const styles = ['salsa', 'bachata', 'salsa', 'bachata'] as const;
+      for (let i = 0; i < 4; i++) await submit(gs[i]!, i + 1, styles[i]);
+      const p = await player();
+      const t0 = deps.clock.now();
+      const a = await p.start();
+      let s = await snap(deps, ev.eventId);
+      const b = s.event.reservation!.requestId;
+      const later = s.event.preview.items.map((x) => x.requestId).filter((id) => id !== b);
+      // Offline for ~8 minutes: A ended, B played, then a song further down the forecast.
+      deps.clock.advance(8 * 60_000);
+      const t1 = t0 + 3 * 60_000;
+      const t2 = t1 + 3 * 60_000;
+      await cmd.reportFinished(deps, { ...p.lease, requestId: a, outcome: 'PLAYED', at: t1 });
+      await cmd.reportStarted(deps, { ...p.lease, requestId: b, at: t1, offline: true });
+      expect((await snap(deps, ev.eventId)).event.nowPlaying?.startedAt).toBe(t1);
+      await cmd.reportFinished(deps, { ...p.lease, requestId: b, outcome: 'PLAYED', at: t2 });
+      s = await snap(deps, ev.eventId);
+      const reserved = s.event.reservation!.requestId;
+      const c = later.find((id) => id !== reserved)!; // not the reservation on purpose
+      await cmd.reportStarted(deps, { ...p.lease, requestId: c, at: t2, offline: true });
+      s = await snap(deps, ev.eventId);
+      expect(s.state(c)).toBe('PLAYING');
+      expect(s.event.nowPlaying?.startedAt).toBe(t2);
+      expect(s.state(reserved)).toBe('RESERVED_NEXT'); // re-picked by recompute, back at the front
+      // Replays are harmless.
+      await cmd.reportStarted(deps, { ...p.lease, requestId: c, at: t2, offline: true });
+      await cmd.reportFinished(deps, { ...p.lease, requestId: b, outcome: 'PLAYED', at: t2 });
+      // A time from a wrong phone clock is kept inside the lease and now.
+      await cmd.reportFinished(deps, {
+        ...p.lease,
+        requestId: c,
+        outcome: 'PLAYED',
+        at: deps.clock.now() + 3_600_000,
+      });
+      expect(s.state(a)).toBe('PLAYED');
+    });
+
+    it('drops an offline start for a song withdrawn meanwhile, but still refuses it online', async () => {
+      const { deps, ev, submit, player } = await setup();
+      const g1 = await guest(deps, ev.eventId);
+      const g2 = await guest(deps, ev.eventId);
+      await submit(g1, 1, 'salsa');
+      const second = await submit(g2, 2, 'bachata');
+      const p = await player();
+      const a = await p.start();
+      await cmd.withdrawRequest(deps, { ...g2, requestId: second.request.id });
+      await p.finish(a);
+      await expectCode(
+        cmd.reportStarted(deps, { ...p.lease, requestId: second.request.id }),
+        'STALE_VERSION',
+      );
+      const r = await cmd.reportStarted(deps, {
+        ...p.lease,
+        requestId: second.request.id,
+        offline: true,
+      });
+      expect(r).toMatchObject({ ok: true, recorded: false });
+      expect((await snap(deps, ev.eventId)).event.nowPlaying).toBeNull();
+    });
+
+    it('does not show a waiting reason while a song plays and nothing else is ready', async () => {
+      const { deps, ev, submit, player } = await setup();
+      const g = await guest(deps, ev.eventId);
+      await submit(g, 1);
+      const p = await player();
+      await p.start();
+      const s = await snap(deps, ev.eventId);
+      expect(s.event.reservation).toBeNull();
+      expect(s.event.waitingReason).toBeNull();
     });
 
     it('waits, with a reason, when only a genre at its cap has songs left', async () => {

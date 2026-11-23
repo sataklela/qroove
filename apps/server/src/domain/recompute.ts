@@ -104,12 +104,18 @@ export function recompute(w: Work, now: number): void {
   if (!reserved) e.reservation = null;
 
   e.waitingReason = null;
-  if (e.state === 'ACTIVE' && !reserved && !playing) {
+  // The next song is reserved while the current one plays (ADR 0029), so the player can prepare it
+  // and start it the moment the current one ends, even if the network drops just then.
+  const playingLeft = playing
+    ? Math.max(0, playing.startedAt + (playing.durationMs ?? DEFAULT_DURATION_MS) - now)
+    : 0;
+  const nextStartIn = playingLeft + (playingLeft > 0 ? overheadMs : 0);
+  if (e.state === 'ACTIVE' && !reserved) {
     if (breakInProgress(w)) {
-      e.waitingReason = 'On a break';
+      if (!playing) e.waitingReason = 'On a break';
     } else {
       const pool: Candidate[] = all.filter((r) => POOL_STATES.has(r.state)).map(cand);
-      const { remainingMs, byBreak } = musicWindowMs(e.endAt, windows, now);
+      const { remainingMs, byBreak } = musicWindowMs(e.endAt, windows, now + nextStartIn);
       const sel = selectNext(pool, history, rules, { remainingMs });
       if (sel.pick) {
         reserved = w.setState(w.requests.get(sel.pick.requestId)!, 'RESERVED_NEXT', now);
@@ -118,6 +124,8 @@ export function recompute(w: Work, now: number): void {
           reservedAt: now,
           leaseEpoch: e.lease?.epoch ?? 0,
         };
+      } else if (playing) {
+        // Nothing fits yet; the reasons below are shown once the current song has ended.
       } else if (pool.length === 0) {
         e.waitingReason = 'Waiting for songs to be requested';
       } else if (
@@ -135,16 +143,13 @@ export function recompute(w: Work, now: number): void {
 
   // Projection: the reservation (if any) is forced first, then the scheduler simulates the rest.
   const candidates = [...w.requests.values()].filter((r) => POOL_STATES.has(r.state)).map(cand);
-  const playingLeft = playing
-    ? Math.max(0, playing.startedAt + (playing.durationMs ?? DEFAULT_DURATION_MS) - now)
-    : 0;
   let uncertain = playing !== null && playing.durationMs === null;
   const items: PreviewItem[] = [];
   let projHistory = history;
   let currentRemainingMs: number | null = playing ? playingLeft : null;
 
   if (reserved) {
-    const startOffset = playingLeft + (playingLeft > 0 ? overheadMs : 0);
+    const startOffset = nextStartIn;
     items.push({
       requestId: reserved.id,
       position: 1,

@@ -93,7 +93,7 @@ describe('Landing', () => {
       screen.getByText(/2 hours · Salsa and Bachata in turn · 20 songs each/),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Plan in detail' })).toHaveAttribute('href', '/new');
-    await user.click(screen.getByRole('button', { name: 'Start an event now' }));
+    await user.click(screen.getByRole('button', { name: 'Host an event' }));
     await waitFor(() => expect(sent[0]).toBeDefined());
     expect(sent[0]!.url).toBe('/api/events');
     expect(sent[0]!.body).toMatchObject({ starter: true });

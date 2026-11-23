@@ -441,7 +441,7 @@ export function RadioFallback({
   );
 
   return (
-    <div className="stack compact radio-fallback" aria-label="Radio fallback">
+    <div className="stack compact radio-fallback" role="group" aria-label="Radio fallback">
       <audio ref={audio} hidden onError={failed} onEnded={failed} onWaiting={undefined} />
       {settingsSlot ? createPortal(setting, settingsSlot) : setting}
       {phase === 'playing' && station ? (

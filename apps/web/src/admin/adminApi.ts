@@ -85,12 +85,32 @@ export const playerApi = {
     ),
   heartbeat: (id: string, l: LeaseCreds) =>
     request<{ ok?: true }>('POST', `${player(id)}/heartbeat`, { body: l }),
-  started: (id: string, l: LeaseCreds, requestId: string, durationMs: number | null) =>
-    request<{ ok: true }>('POST', `${player(id)}/started`, {
-      body: { ...l, requestId, ...(durationMs ? { durationMs: Math.round(durationMs) } : {}) },
+  /** `late`: the real start time, and whether it was started without the server (ADR 0029). */
+  started: (
+    id: string,
+    l: LeaseCreds,
+    requestId: string,
+    durationMs: number | null,
+    late?: { at: number; offline: boolean },
+  ) =>
+    request<{ ok: true; recorded?: false }>('POST', `${player(id)}/started`, {
+      body: {
+        ...l,
+        requestId,
+        ...(durationMs ? { durationMs: Math.round(durationMs) } : {}),
+        ...(late ? { at: Math.round(late.at), ...(late.offline ? { offline: true } : {}) } : {}),
+      },
     }),
-  finished: (id: string, l: LeaseCreds, requestId: string, outcome: 'PLAYED' | 'FAILED') =>
-    request<{ ok: true }>('POST', `${player(id)}/finished`, { body: { ...l, requestId, outcome } }),
+  finished: (
+    id: string,
+    l: LeaseCreds,
+    requestId: string,
+    outcome: 'PLAYED' | 'FAILED',
+    at?: number,
+  ) =>
+    request<{ ok: true }>('POST', `${player(id)}/finished`, {
+      body: { ...l, requestId, outcome, ...(at ? { at: Math.round(at) } : {}) },
+    }),
   /** YouTube videos that are the same recording as a Spotify song, best first (may be empty). */
   youtube: (id: string, requestId: string) =>
     request<{ videoIds: string[] }>('GET', `${player(id)}/youtube/${requestId}`),

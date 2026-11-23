@@ -611,3 +611,18 @@ Route `/player/:eventId` (admin cookie required to claim lease; separate privile
 4. Final docs review: every page real (no "Documented in Phase N" placeholders: `grep -r "Documented in Phase" docs/src` empty).
 5. Final PROGRESS update: summary + known limitations + pilot validation questions (SPEC §3.3 quota
    interpretation to validate with dancers).
+
+## Phases 19–20 — Android app (Capacitor) and gapless playback on a weak network
+
+> Replaces the TWA draft of Phase 19 (cloud session 2026-11-23, never merged). Decision record: ADR 0029.
+
+**Goal:** a sideloaded Android app that is the site in a Capacitor WebView, plus no gap between songs on a
+weak network, plus an icon-first UI shared by site and app.
+
+**Steps:** (1) server: reserve while playing, late/offline play reports, app sign-in handoff; (2) web: outbox,
+forecast fallback for 2 songs, cued next player, YouTube matches ahead, `shared/native.ts`; (3) `apps/mobile`
+Capacitor shell, deep links, signing, CI; (4) icons, (i) explanations, Google default / Spotify under More;
+(5) release key on the VPS, secrets, deploy, tag; (6) phone checks over wireless adb (runbook).
+
+**Exit checks:** unit + e2e green; APK builds signed; assetlinks live; on a phone: QR opens the app, Google
+sign-in round-trip, auto-advance with no tap, 2-song offline run and catch-up, screen stays on.

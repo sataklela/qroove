@@ -18,12 +18,13 @@ export function closePlaying(
   pb: PlaybackDoc | null,
   requestState: 'PLAYED' | 'SKIPPED',
   outcome: PlaybackOutcome,
+  endedAt: number = c.now,
 ): void {
   const np = w.event.nowPlaying;
   if (!np) return;
   const req = w.requests.get(np.requestId);
   if (req) w.setState(req, requestState, c.now);
-  if (pb) c.tx.putPlayback({ ...pb, endedAt: c.now, outcome });
+  if (pb) c.tx.putPlayback({ ...pb, endedAt: Math.max(pb.startedAt, endedAt), outcome });
   w.event.nowPlaying = null;
 }
 

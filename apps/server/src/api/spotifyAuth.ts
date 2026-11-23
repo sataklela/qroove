@@ -6,6 +6,7 @@ import { parse } from './errors.js';
 import { fetchJson, type FetchLike } from '../ingestion/fetch.js';
 import { songFromTrack } from '../ingestion/providers/spotify.js';
 import { parseCookies, requireSameOrigin, type Security } from '../security/tokens.js';
+import type { AppHandoff } from './appHandoff.js';
 
 const SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state';
 const STATE_COOKIE = 'qs_state';
@@ -48,6 +49,8 @@ export interface SpotifyAuthOptions {
   doFetch: FetchLike;
   sec: Security;
   limit: (key: string, max: number, windowMs: number) => void;
+  /** Android app sign-in through a Custom Tab (ADR 0029). */
+  handoff?: AppHandoff;
 }
 
 /**
@@ -107,8 +110,12 @@ export function registerSpotifyAuth(app: FastifyInstance, o: SpotifyAuthOptions)
 
   app.get('/api/spotify/login', async (req, reply) => {
     o.limit(`spotify-login:${req.ip}`, 10, 60_000);
-    const { return: back, for: who } = parse(
-      z.object({ return: z.string().regex(RETURN_PATH), for: z.enum(['guest']).optional() }),
+    const { return: back, for: who, app: inApp } = parse(
+      z.object({
+        return: z.string().regex(RETURN_PATH),
+        for: z.enum(['guest']).optional(),
+        app: z.enum(['1']).optional(),
+      }),
       req.query,
     );
     if (!o.creds) throw new DomainError('METADATA_UNAVAILABLE');
@@ -122,7 +129,7 @@ export function registerSpotifyAuth(app: FastifyInstance, o: SpotifyAuthOptions)
       state,
     });
     return backTo(reply, `https://accounts.spotify.com/authorize?${q}`, [
-      cookie(STATE_COOKIE, `${state}|${back}`, 600),
+      cookie(STATE_COOKIE, `${state}|${back}${inApp ? '|app' : ''}`, 600),
     ]);
   });
 
@@ -134,13 +141,18 @@ export function registerSpotifyAuth(app: FastifyInstance, o: SpotifyAuthOptions)
         error: z.string().optional(),
       })
       .parse(req.query);
-    const [state, back] = (parseCookies(req.headers.cookie)[STATE_COOKIE] ?? '').split('|');
+    const [state, back, mode] = (parseCookies(req.headers.cookie)[STATE_COOKIE] ?? '').split('|');
     const clear = cookie(STATE_COOKIE, '', 0);
     // A callback we did not start must not sign anyone in or choose where they land.
     if (!state || !back || !RETURN_PATH.test(back) || q.state !== state || !o.creds) {
       return backTo(reply, '/', [clear]);
     }
-    if (!q.code) return backTo(reply, `${back}?spotify=denied`, [clear]);
+    // In the app, land back in the app with the cookies (see AppHandoff); on the site, as before.
+    const finish = (path: string, cookies: string[]) =>
+      mode === 'app' && o.handoff
+        ? o.handoff.send(reply, o.base, path, cookies, [clear])
+        : backTo(reply, path, [clear, ...cookies]);
+    if (!q.code) return finish(`${back}?spotify=denied`, []);
     try {
       const t = await tokenRequest({
         grant_type: 'authorization_code',
@@ -148,12 +160,9 @@ export function registerSpotifyAuth(app: FastifyInstance, o: SpotifyAuthOptions)
         redirect_uri: redirectUri,
       });
       if (!t.refresh_token) throw new Error('no refresh token');
-      return backTo(reply, back, [
-        clear,
-        cookie(SESSION_COOKIE, seal(t.refresh_token), SESSION_MAX_AGE),
-      ]);
+      return finish(back, [cookie(SESSION_COOKIE, seal(t.refresh_token), SESSION_MAX_AGE)]);
     } catch {
-      return backTo(reply, `${back}?spotify=failed`, [clear]);
+      return finish(`${back}?spotify=failed`, []);
     }
   });
 

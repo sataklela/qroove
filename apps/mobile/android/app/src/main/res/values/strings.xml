@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Qroove</string>
+    <string name="title_activity_main">Qroove</string>
+    <string name="package_name">com.sataklela.qroove</string>
+    <string name="site_host">qroove.sataklela.com</string>
+    <string name="custom_url_scheme">com.sataklela.qroove</string>
+</resources>

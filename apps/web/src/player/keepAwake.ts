@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { isApp, nativeKeepAwake } from '../shared/native';
 
 /**
  * Keeps the screen on while `on` (Screen Wake Lock). The browser drops the lock whenever the page
@@ -6,8 +7,14 @@ import { useEffect } from 'react';
  * the API, or a phone in battery-saver mode, simply refuses.
  */
 export function useScreenAwake(on: boolean): void {
+  // In the app the screen is kept on natively, which also holds in battery-saver mode.
   useEffect(() => {
-    if (!on || !navigator.wakeLock) return;
+    if (!on || !isApp()) return;
+    void nativeKeepAwake(true);
+    return () => void nativeKeepAwake(false);
+  }, [on]);
+  useEffect(() => {
+    if (!on || isApp() || !navigator.wakeLock) return;
     let lock: WakeLockSentinel | null = null;
     let asking = false;
     let over = false;

@@ -11,6 +11,7 @@ export default tseslint.config(
       'docs/.vitepress/cache/**',
       'coverage/**',
       '.secrets/**',
+      'apps/mobile/android/**',
     ],
   },
   js.configs.recommended,

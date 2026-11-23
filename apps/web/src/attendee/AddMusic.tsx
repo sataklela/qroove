@@ -184,19 +184,21 @@ export function AddMusic({
             50,
           );
         }}
-      />
-      <YouTubeBrowse
-        slug={view.slug}
-        addedIds={addedIds}
-        onPlaylist={(tracks, id) => {
-          setLoadedPlaylist(id);
-          onTracks('music', tracks);
-          setTimeout(
-            () => listRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }),
-            50,
-          );
-        }}
-      />
+      >
+        {/* YouTube first: Spotify sign-in is for pilot accounts and sits under More. */}
+        <YouTubeBrowse
+          slug={view.slug}
+          addedIds={addedIds}
+          onPlaylist={(tracks, id) => {
+            setLoadedPlaylist(id);
+            onTracks('music', tracks);
+            setTimeout(
+              () => listRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }),
+              50,
+            );
+          }}
+        />
+      </SpotifyBrowse>
       <p className="validation" role="status">
         {allowance}
       </p>

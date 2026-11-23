@@ -2,34 +2,56 @@ import { useEffect, useRef } from 'react';
 import { mountEmbed, type EmbedEvents, type Source } from './embed';
 import type { SpotifyConnection } from './spotifySdk';
 
-/** Hosts one provider player for one song; a new song means a new player. */
+/**
+ * Hosts one provider player for one song; a new song means a new player. With `armed` false the
+ * song is only cued (the next song, made ready while the current one plays, ADR 0029); it starts
+ * when `armed` turns true, in the same player, so there is no load time between songs.
+ */
 export function EmbedPlayer({
   source,
   spotify,
+  armed = true,
   ...events
-}: { source: Source; spotify: SpotifyConnection | null } & EmbedEvents) {
+}: { source: Source; spotify: SpotifyConnection | null; armed?: boolean } & EmbedEvents) {
   const host = useRef<HTMLDivElement>(null);
   const latest = useRef(events);
   useEffect(() => {
     latest.current = events;
   });
+  const arm = useRef<(() => void) | null>(null);
+  const startArmed = useRef(armed);
   const { kind, id, expectedMs } = source;
+  const sdk = spotify !== null && kind === 'spotify';
   useEffect(() => {
-    if (!host.current) return;
+    if (!host.current || sdk) return;
     const ev: EmbedEvents = {
       onPlaying: (ms) => latest.current.onPlaying(ms),
       onEnded: () => latest.current.onEnded(),
       onFailed: (why) => latest.current.onFailed(why),
     };
-    // Signed in: the page itself plays, so there is no provider box to show.
-    if (spotify && kind === 'spotify') return spotify.play(id, ev);
+    const hold = startArmed.current
+      ? undefined
+      : new Promise<void>((resolve) => {
+          arm.current = resolve;
+        });
     return mountEmbed(
       host.current,
       expectedMs === undefined ? { kind, id } : { kind, id, expectedMs },
       ev,
+      hold,
     );
-  }, [kind, id, expectedMs, spotify]);
-  return (
-    <div ref={host} className={spotify && kind === 'spotify' ? undefined : `embed-host ${kind}`} />
-  );
+  }, [kind, id, expectedMs, sdk]);
+  // Signed in to Spotify: the page itself plays, so there is nothing to cue; it starts when armed.
+  useEffect(() => {
+    if (!sdk || !armed || !spotify) return;
+    return spotify.play(id, {
+      onPlaying: (ms) => latest.current.onPlaying(ms),
+      onEnded: () => latest.current.onEnded(),
+      onFailed: (why) => latest.current.onFailed(why),
+    });
+  }, [sdk, armed, spotify, id]);
+  useEffect(() => {
+    if (armed) arm.current?.();
+  }, [armed]);
+  return <div ref={host} hidden={!armed} className={sdk ? undefined : `embed-host ${kind}`} />;
 }

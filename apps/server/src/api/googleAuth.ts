@@ -7,6 +7,7 @@ import { fetchJson, type FetchLike } from '../ingestion/fetch.js';
 import { cleanVideoTitle } from '../ingestion/playlist.js';
 import { isoDurationMs } from '../ingestion/providers/youtube.js';
 import { parseCookies, requireSameOrigin, type Security } from '../security/tokens.js';
+import type { AppHandoff } from './appHandoff.js';
 
 // Read-only access to the guest's YouTube account: playlists and the songs in them, nothing else.
 const SCOPE = 'https://www.googleapis.com/auth/youtube.readonly';
@@ -51,6 +52,8 @@ export interface GoogleAuthOptions {
   doFetch: FetchLike;
   sec: Security;
   limit: (key: string, max: number, windowMs: number) => void;
+  /** Android app sign-in through a Custom Tab (ADR 0029). */
+  handoff?: AppHandoff;
 }
 
 /**
@@ -116,7 +119,10 @@ export function registerGoogleAuth(app: FastifyInstance, o: GoogleAuthOptions) {
 
   app.get('/api/google/login', async (req, reply) => {
     o.limit(`google-login:${req.ip}`, 10, 60_000);
-    const { return: back } = parse(z.object({ return: z.string().regex(RETURN_PATH) }), req.query);
+    const { return: back, app: inApp } = parse(
+      z.object({ return: z.string().regex(RETURN_PATH), app: z.enum(['1']).optional() }),
+      req.query,
+    );
     if (!o.creds) throw new DomainError('METADATA_UNAVAILABLE');
     const state = randomBytes(16).toString('hex');
     const q = new URLSearchParams({
@@ -131,7 +137,7 @@ export function registerGoogleAuth(app: FastifyInstance, o: GoogleAuthOptions) {
       include_granted_scopes: 'false',
     });
     return backTo(reply, `https://accounts.google.com/o/oauth2/v2/auth?${q}`, [
-      cookie(STATE_COOKIE, `${state}|${back}`, 600),
+      cookie(STATE_COOKIE, `${state}|${back}${inApp ? '|app' : ''}`, 600),
     ]);
   });
 
@@ -143,13 +149,18 @@ export function registerGoogleAuth(app: FastifyInstance, o: GoogleAuthOptions) {
         error: z.string().optional(),
       })
       .parse(req.query);
-    const [state, back] = (parseCookies(req.headers.cookie)[STATE_COOKIE] ?? '').split('|');
+    const [state, back, mode] = (parseCookies(req.headers.cookie)[STATE_COOKIE] ?? '').split('|');
     const clear = cookie(STATE_COOKIE, '', 0);
     // A callback we did not start must not sign anyone in or choose where they land.
     if (!state || !back || !RETURN_PATH.test(back) || q.state !== state || !o.creds) {
       return backTo(reply, '/', [clear]);
     }
-    if (!q.code) return backTo(reply, `${back}?google=denied`, [clear]);
+    // In the app, land back in the app with the cookies (see AppHandoff); on the site, as before.
+    const finish = (path: string, cookies: string[]) =>
+      mode === 'app' && o.handoff
+        ? o.handoff.send(reply, o.base, path, cookies, [clear])
+        : backTo(reply, path, [clear, ...cookies]);
+    if (!q.code) return finish(`${back}?google=denied`, []);
     try {
       const t = await tokenRequest({
         grant_type: 'authorization_code',
@@ -157,12 +168,9 @@ export function registerGoogleAuth(app: FastifyInstance, o: GoogleAuthOptions) {
         redirect_uri: redirectUri,
       });
       if (!t.refresh_token) throw new Error('no refresh token');
-      return backTo(reply, back, [
-        clear,
-        cookie(SESSION_COOKIE, seal(t.refresh_token), SESSION_MAX_AGE),
-      ]);
+      return finish(back, [cookie(SESSION_COOKIE, seal(t.refresh_token), SESSION_MAX_AGE)]);
     } catch {
-      return backTo(reply, `${back}?google=failed`, [clear]);
+      return finish(`${back}?google=failed`, []);
     }
   });
 
