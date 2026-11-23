@@ -5,6 +5,7 @@ versioning: [SemVer](https://semver.org/).
 
 ## Unreleased
 
+- **Android app** (`apps/android`): Trusted Web Activity shell for the live site, distributed as an APK outside Google Play (ADR 0028, runbook `runbook/android`). Server serves `/.well-known/assetlinks.json` from the new `ANDROID_CERT_SHA256` variable. CI workflow `Android` builds the APK and attaches it to tagged releases. Web manifest gains `id` and `scope`.
 - Privacy page: full Google user data disclosures (access, use, sharing, protection, retention/deletion, Limited Use) for OAuth verification.
 - "Sign out of Google" button under My YouTube playlist; sign-out now also revokes the grant at Google. Privacy contact email added.
 

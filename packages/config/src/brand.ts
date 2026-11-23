@@ -11,6 +11,8 @@ export const BRAND = {
   privacyEmail: 'sataklela+qroove@gmail.com',
   siteUrl: 'https://qroove.sataklela.com',
   docsPath: '/docs',
+  /** Android app (Trusted Web Activity, sideloaded APK; ADR 0028). */
+  android: { packageId: 'com.sataklela.qroove' },
   pilotCommunity: 'LSU Salsa Society (pilot community; not an endorsement)',
 } as const;
 

@@ -614,6 +614,8 @@ Route `/player/:eventId` (admin cookie required to claim lease; separate privile
 
 ## Phase 19 — Android app (Trusted Web Activity)
 
+> **Revised 2026-11-23:** no Google Play account; distribute the signed APK via GitHub Releases and third-party stores. Steps 1–7 apply (hand-written Gradle project instead of Bubblewrap; we hold our own signing key); step 8 is dropped. See ADR 0028.
+
 **Goal:** Qroove installable from Google Play as an Android app, with no second codebase.
 
 **Decision: TWA (Bubblewrap), not Capacitor / React Native.**

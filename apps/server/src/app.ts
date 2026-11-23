@@ -14,7 +14,7 @@ import { registerGoogleAuth } from './api/googleAuth.js';
 import { registerSpotifyAuth } from './api/spotifyAuth.js';
 import { parseEnv, type Env } from './env.js';
 import { runPurge, schedulePurge, secretMatches } from './maintenance/purge.js';
-import { STARTER_PLAYLISTS } from '@qroove/config';
+import { BRAND, STARTER_PLAYLISTS } from '@qroove/config';
 import { createStarter } from './ingestion/starter.js';
 import { createIngestion } from './ingestion/index.js';
 import type { FetchLike } from './ingestion/fetch.js';
@@ -206,6 +206,27 @@ export async function buildApp(
     version: VERSION,
     commit: env.RAILWAY_GIT_COMMIT_SHA ?? null,
   }));
+
+  // Digital Asset Links: proves the Android app and this site are the same owner (TWA, no URL bar).
+  const androidCerts = (env.ANDROID_CERT_SHA256 ?? '')
+    .split(',')
+    .map((c) => c.trim().toUpperCase())
+    .filter(Boolean);
+  app.get('/.well-known/assetlinks.json', async (_req, reply) => {
+    reply.header('cache-control', 'public, max-age=300');
+    return androidCerts.length === 0
+      ? []
+      : [
+          {
+            relation: ['delegate_permission/common.handle_all_urls'],
+            target: {
+              namespace: 'android_app',
+              package_name: BRAND.android.packageId,
+              sha256_cert_fingerprints: androidCerts,
+            },
+          },
+        ];
+  });
 
   await registerStatic(app, {
     web: env.WEB_DIST ?? resolve(here, '../../web/dist'),

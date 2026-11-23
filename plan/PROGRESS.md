@@ -2,7 +2,7 @@
 
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
-**Current phase:** 19 — Android app (TWA), planned 2026-11-22, not started
+**Current phase:** 19 — Android app (TWA, sideloaded) — built 2026-11-23; needs release key + phone check
 **Next session starts with:** Phase 18 browser and phone checks: follow `docs/src/runbook/fewest-taps-checks.md` (set-up, sequences O1–O11 and G1–G12 with tap targets, what is and is not verified). Also: put the two house playlist links in `packages/config/src/starter.ts` (or set `STARTER_PLAYLIST_SALSA` / `STARTER_PLAYLIST_BACHATA` on Railway), then try the one-tap flow on two real phones (swipes on iOS and Android). Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, (radio is already on by default, ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
 
 ## Phases
@@ -18,7 +18,7 @@ Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 - [x] 8 — Hardening, e2e, a11y, perf
 - [x] 9 — Deploy (Railway + Cloudflare + Firestore)
 - [x] 10 — Release 0.1.0 + transfer readiness
-- [ ] 19 — Android app (TWA) — see EXECUTION_PLAN Phase 19
+- [x] 19 — Android app (TWA, sideloaded) — see EXECUTION_PLAN Phase 19
 
 ## Decisions made (during planning, 2026-10-29)
 
@@ -252,3 +252,12 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 - **Not verified:** on any phone. Which step actually cut the sound (page frozen, stream stalled, lease lost) is not known; the wake lock only works while the Qroove page is on screen and is refused in battery-saver mode. If radio still dies with the screen locked by hand, look at the stream stall path and the 30 s lease first.
 - Tests: web +5 (hook 3, stall 1, console 1).
 
+
+### Phase 19 — Android app, outside Google Play (2026-11-23)
+
+- No Play account: APK handed out via GitHub Releases / third-party stores (ADR 0028). Play-specific steps from the plan dropped.
+- `apps/android`: hand-written Gradle project (AGP 8.11.1, Gradle 8.14.3, compileSdk/targetSdk 36, minSdk 23) on `androidbrowserhelper` 2.6.2 (its `androidx.browser` alpha needs compileSdk 36). Debug and signed release APKs build locally; release signing verified with a throwaway key.
+- Server: `/.well-known/assetlinks.json` from `ANDROID_CERT_SHA256` (empty list when unset). Tests: assetlinks + Android shell ↔ BRAND consistency.
+- CI: `.github/workflows/android.yml` (artifact always; signed APK on `v*` tags when keystore secrets exist).
+- Fixed a pre-existing typecheck error in `apps/server/test/starter.test.ts` (missing `platform`).
+- **Needs user:** generate the release key and back it up; set GitHub secrets `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`; set `ANDROID_CERT_SHA256` on Coolify; tag a release; run the phone checks in `docs/src/runbook/android.md`.
