@@ -32,6 +32,31 @@ The user prefers that you **do the needful yourself** and only stop for things t
   secrets — never in git, chat or logs. Record _where_ a secret lives in the runbook, never its value.
 - Leave the next session a clear "Next session starts with:" line in `plan/PROGRESS.md`.
 
+## Cloud → VPS handoff (teleport)
+
+Work starts in a claude.ai cloud session (idea, plan, code). When it needs real building, testing, server
+access or secrets, the user **teleports this same session to the VPS terminal** and types `continue`.
+
+**In the cloud session, when the work reaches "needs the server":**
+
+1. Commit and push everything to the session branch (teleport needs it on GitHub).
+2. Update "Next session starts with" in `plan/PROGRESS.md` with exact VPS steps, as commands, in order.
+3. Tell the user in one line: _"Ready for the VPS: `cd ~/qroove && claude --teleport` and say continue."_
+   Do not hand them a manual checklist that you could run yourself once you're on the VPS.
+
+**On `continue` after a teleport, check where you are first:** `hostname; whoami; test -d /data/coolify && echo VPS`.
+
+- **On the VPS:** you have full access. Do the "needs user" steps from this conversation and PROGRESS yourself
+  (install tools, build, test, create keys/secrets, set Coolify variables, redeploy, check production). Use the
+  "Ask first" list below for anything outside that. Push results to the same branch and clear the done items from PROGRESS.
+- **Still in the cloud:** carry on with whatever works here, and keep the VPS steps queued.
+
+**VPS one-time setup (user, once):** a clone at `~/qroove` with push access (the `deploy` user's GitHub
+credentials, not the read-only deploy key), Claude Code installed and logged in to the same claude.ai account,
+and `gh` authenticated. Allow full permissions there with
+`claude --teleport --dangerously-skip-permissions` or a `permissions.defaultMode` in `~/.claude/settings.json`.
+Teleport needs a clean working tree in `~/qroove`.
+
 ## Android app (Phase 19, ADR 0028)
 
 - Trusted Web Activity distributed as an APK **outside Google Play** (GitHub Releases / third-party stores).
