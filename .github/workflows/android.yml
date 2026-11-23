@@ -23,7 +23,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
       - run: pnpm install --frozen-lockfile
       - name: Capacitor sync
         working-directory: apps/mobile
