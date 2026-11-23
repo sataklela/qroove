@@ -3,7 +3,7 @@
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 **Current phase:** 19 — Android app (TWA, sideloaded) — built 2026-11-23; needs release key + phone check
-**Next session starts with:** Phase 18 browser and phone checks: follow `docs/src/runbook/fewest-taps-checks.md` (set-up, sequences O1–O11 and G1–G12 with tap targets, what is and is not verified). Also: put the two house playlist links in `packages/config/src/starter.ts` (or set `STARTER_PLAYLIST_SALSA` / `STARTER_PLAYLIST_BACHATA` on Railway), then try the one-tap flow on two real phones (swipes on iOS and Android). Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, (radio is already on by default, ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
+**Next session starts with:** (on the VPS, per CLAUDE.md "Working autonomously") finish Phase 19: create the Android release key in `/srv/qroove/secrets/`, set `ANDROID_CERT_SHA256` on Coolify and the four `ANDROID_*` GitHub secrets, check assetlinks.json in production, tag a release so CI attaches the signed APK; ask the user for the offline key backup and a phone check (runbook `docs/src/runbook/android.md`). Earlier carry-overs: Phase 18 browser/phone checks (`docs/src/runbook/fewest-taps-checks.md`), house playlist links in `packages/config/src/starter.ts`, radio fallback on real devices.
 
 ## Phases
 
