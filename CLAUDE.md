@@ -2,6 +2,8 @@
 
 Fair collaborative music queue PWA (plus Android app) for dance socials. A CSR initiative of Sataklela OÜ (AGPL-3.0).
 
+**If `HANDOVER.md` exists at the repo root, read it first and follow it** (it is the handover from a cloud session; delete it when its checklist is done).
+
 **Every session:** read `plan/PROGRESS.md`, then §0–§5 of `plan/EXECUTION_PLAN.md` and only the section for the
 current phase. Product rules live in `plan/SPEC.md` — read only the sections the phase references.
 
