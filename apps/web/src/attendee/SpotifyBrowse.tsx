@@ -1,3 +1,7 @@
+import type { ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { InfoTip } from '../shared/InfoTip';
+import { SignInButton } from '../shared/SignInButton';
 import { useEffect, useState } from 'react';
 import { api, ApiError, type PlaylistSong } from '../shared/api';
 
@@ -13,8 +17,11 @@ export function SpotifyBrowse({
   onPick,
   onPlaylist,
   addedIds = [],
+  children,
 }: {
   slug: string;
+  /** Shown between the search results and the Spotify account part (the YouTube picker). */
+  children?: ReactNode;
   /** What is typed in the shared field: words search, links are handled by the field itself. */
   text: string;
   onPick: (song: PlaylistSong) => void;
@@ -123,6 +130,7 @@ export function SpotifyBrowse({
           ))}
         </ul>
       ) : null}
+      {children}
       {mine ? (
         <>
           <details
@@ -167,12 +175,22 @@ export function SpotifyBrowse({
           ) : null}
         </>
       ) : (
-        <p className="muted small">
-          <a href={`/api/spotify/login?for=guest&return=${encodeURIComponent(`/e/${slug}`)}`}>
-            Log in with Spotify
-          </a>{' '}
-          to use your own playlists. Only works for accounts on the pilot list.
-        </p>
+        // Spotify accounts are for pilot users only, so signing in is one tap further away.
+        <details className="more-options">
+          <summary className="btn ghost small" aria-label="More ways to add music">
+            More <ChevronDown aria-hidden size={16} />
+          </summary>
+          <p className="row">
+            <SignInButton
+              href={`/api/spotify/login?for=guest&return=${encodeURIComponent(`/e/${slug}`)}`}
+            >
+              Spotify
+            </SignInButton>
+            <InfoTip label="About Spotify sign-in">
+              Your own Spotify playlists. Only for accounts on the pilot list.
+            </InfoTip>
+          </p>
+        </details>
       )}
       {problem ? (
         <p className="error small" role="alert">

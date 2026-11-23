@@ -601,6 +601,8 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
       epoch: b.epoch,
       requestId: b.requestId,
       durationMs: b.durationMs ?? null,
+      at: b.at,
+      offline: b.offline,
     });
   });
 

@@ -1,3 +1,4 @@
+import { InfoTip } from '../shared/InfoTip';
 import {
   EVENT_LIMITS,
   GENRES,
@@ -338,11 +339,13 @@ export function HandoverPanel({ s, cmd, refresh, eventId }: PanelProps & { event
   const link = offer ? `${location.origin}/claim/${eventId}#c=${offer.code}` : '';
   return (
     <section className="card stack" aria-labelledby="ho-h">
-      <h2 id="ho-h">Hand over</h2>
-      <p className="muted">
-        Give control to someone else. Their link works once, for 10 minutes. The moment they open
-        it, your access stops, playback pauses, and the song in progress counts as played.
-      </p>
+      <div className="card-head">
+        <h2 id="ho-h">Hand over</h2>
+        <InfoTip label="How handing over works">
+          Give control to someone else. Their link works once, for 10 minutes. The moment they open
+          it, your access stops, playback pauses, and the song in progress counts as played.
+        </InfoTip>
+      </div>
       {live ? (
         <ConfirmButton
           label="Hand over admin"

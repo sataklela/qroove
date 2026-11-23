@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BRAND } from '@qroove/config';
 import { createPortal } from 'react-dom';
+import { ChevronDown, FileAudio, FolderOpen, Volume2, WifiOff } from 'lucide-react';
+import { InfoTip } from '../shared/InfoTip';
+import { SignInButton } from '../shared/SignInButton';
 import { playerApi, type LeaseCreds } from '../admin/adminApi';
 import type { AdminStream } from '../admin/useAdminStream';
 import { ErrorLine } from '../admin/useAction';
@@ -9,7 +12,8 @@ import { EmbedPlayer } from './EmbedPlayer';
 import { useScreenAwake } from './keepAwake';
 import { RadioFallback } from './RadioFallback';
 import { connectSpotify, fetchSpotifyToken, type SpotifyConnection } from './spotifySdk';
-import { sourceOf, type EmbedFailure, type Source } from './embed';
+import { loadYouTube, sourceOf, type EmbedFailure, type Source } from './embed';
+import { OFFLINE_SONGS, Outbox, pickNext, type PlayOp } from './outbox';
 import {
   findMatch,
   isAudio,
@@ -91,13 +95,50 @@ export function PlayerConsole({
   const [spotifyFailed, setSpotifyFailed] = useState<Set<string>>(new Set());
   /** A radio station is on: the next guest song waits for its handover (ADR 0023). */
   const [radioHold, setRadioHold] = useState(false);
+  const [cuedFailed, setCuedFailed] = useState<ReadonlySet<string>>(new Set());
 
   const audio = useRef<HTMLAudioElement>(null);
   /** Request the audio element is currently loaded with, and whether the server has been told. */
-  const current = useRef<{ id: string; reported: boolean; url: string; src?: Source } | null>(null);
+  const current = useRef<{
+    id: string;
+    reported: boolean;
+    url: string;
+    src?: Source;
+    /** Started from the forecast while the server was out of reach. */
+    offline?: boolean;
+  } | null>(null);
 
-  const reserved = s?.requests.find((r) => r.state === 'RESERVED_NEXT') ?? null;
-  const nowPlaying = s?.view.nowPlaying ?? null;
+  // ---- what plays next (ADR 0029) ------------------------------------------------------------
+  // The player never waits for the server between songs: reports go through the outbox, and the
+  // next song is the server's reservation or, while reports are stuck, the last forecast seen.
+  const outbox = useMemo(() => new Outbox(`qroove:outbox:${eventId}`), [eventId]);
+  /** Songs this device has started (so the stale server view never makes it replay one). */
+  const [done, setDone] = useState<ReadonlySet<string>>(
+    () => new Set(outbox.pending.map((o) => o.requestId)),
+  );
+  const [unconfirmed, setUnconfirmed] = useState(() => outbox.unconfirmedStarts);
+  const [offline, setOffline] = useState(false);
+  const serverReserved = s?.requests.find((r) => r.state === 'RESERVED_NEXT') ?? null;
+  const queue = s?.view.queue;
+  const queueIds = useMemo(
+    () => (queue ?? []).filter((q) => !q.overflow).map((q) => q.requestId),
+    [queue],
+  );
+  const next = pickNext({
+    reservedId: serverReserved?.id ?? null,
+    queueIds,
+    done,
+    unconfirmedStarts: unconfirmed,
+  });
+  const reserved = (next && s?.requests.find((r) => r.id === next.id)) || null;
+  const serverNowPlaying = s?.view.nowPlaying ?? null;
+  // A song this device already ended still shows as playing until the server hears about it.
+  const nowPlaying =
+    serverNowPlaying &&
+    done.has(serverNowPlaying.track.requestId) &&
+    audioId !== serverNowPlaying.track.requestId
+      ? null
+      : serverNowPlaying;
 
   const match: Match | null = useMemo(() => {
     if (!reserved) return null;
@@ -153,10 +194,12 @@ export function PlayerConsole({
 
   const lose = useCallback(() => {
     stopAudio();
+    outbox.clear();
+    setUnconfirmed(0);
     lease.current = null;
     writeLease(eventId, null);
     setLeaseState('lost');
-  }, [eventId, stopAudio]);
+  }, [eventId, stopAudio, outbox]);
 
   const guard = useCallback(
     (e: unknown) => {
@@ -165,6 +208,53 @@ export function PlayerConsole({
     },
     [lose],
   );
+
+  // ---- reports (outbox) ----------------------------------------------------------------------
+  const flushReports = useCallback(() => {
+    const send = (op: PlayOp) => {
+      const l = lease.current;
+      if (!l) return Promise.reject(new ApiError('OFFLINE', '', '', 0));
+      return op.kind === 'started'
+        ? playerApi.started(eventId, l, op.requestId, op.durationMs, {
+            at: op.at,
+            offline: op.offline,
+          })
+        : playerApi.finished(eventId, l, op.requestId, op.outcome, op.at);
+    };
+    // An online start the server refused (the queue changed just then): stop, as before.
+    const onDrop = (op: PlayOp, code: string) => {
+      if (op.kind === 'started' && !op.offline && current.current?.id === op.requestId) {
+        stopAudio();
+        if (code === 'STALE_VERSION') {
+          setNotice('The queue changed before that song started, so it was not counted.');
+        }
+      }
+    };
+    return outbox.flush(send, onDrop).then((r) => {
+      setUnconfirmed(outbox.unconfirmedStarts);
+      setOffline(r === 'offline');
+      if (r === 'lost') lose();
+      else if (r === 'done') stream.refresh();
+    });
+    // `stream.refresh` is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, outbox, lose, stopAudio]);
+
+  const report = useCallback(
+    (op: PlayOp) => {
+      outbox.push(op);
+      setUnconfirmed(outbox.unconfirmedStarts);
+      void flushReports();
+    },
+    [outbox, flushReports],
+  );
+
+  // Back online: send what is waiting at once rather than at the next heartbeat.
+  useEffect(() => {
+    const on = () => void flushReports();
+    window.addEventListener('online', on);
+    return () => window.removeEventListener('online', on);
+  }, [flushReports]);
 
   const claim = useCallback(async () => {
     if (!csrf) return;
@@ -210,10 +300,21 @@ export function PlayerConsole({
     if (leaseState !== 'held') return;
     const id = setInterval(() => {
       const l = lease.current;
-      if (l) playerApi.heartbeat(eventId, l).catch(guard);
+      if (outbox.pending.length) void flushReports();
+      if (l) {
+        playerApi
+          .heartbeat(eventId, l)
+          .then(() => setError((e) => (e?.code === 'OFFLINE' ? null : e)))
+          .catch(guard);
+      }
     }, HEARTBEAT_MS);
     return () => clearInterval(id);
-  }, [leaseState, eventId, guard]);
+  }, [leaseState, eventId, guard, outbox, flushReports]);
+
+  // Leftover reports from before a reload go out once the role is back.
+  useEffect(() => {
+    if (leaseState === 'held' && outbox.pending.length) void flushReports();
+  }, [leaseState, outbox, flushReports]);
 
   // Another device claimed the lease: stop immediately, without waiting for our next heartbeat.
   const epoch = s?.lease?.epoch;
@@ -291,12 +392,51 @@ export function PlayerConsole({
   }
 
   // ---- playback ----------------------------------------------------------------------------
+  const nextOffline = useRef(false);
+  const nextIsOffline = next?.offline ?? false;
+  // Declared before the auto-advance effect, so it is current when that effect starts a song.
+  useEffect(() => {
+    nextOffline.current = nextIsOffline;
+  }, [nextIsOffline]);
+
+  // YouTube's player script loads once the role is held, so the first song does not wait for it.
+  useEffect(() => {
+    if (leaseState === 'held') loadYouTube().catch(() => undefined);
+  }, [leaseState]);
+
+  // YouTube matches for the forecast songs too, so the player has them if the network drops.
+  const queueHead = queueIds.slice(0, OFFLINE_SONGS + 1).join(',');
+  useEffect(() => {
+    if (spotifyStatus === 'ready' || spotifyStatus === 'checking' || !s) return;
+    const ids = queueHead
+      .split(',')
+      .filter(
+        (id) =>
+          id &&
+          ytIds[id] === undefined &&
+          sourceOf(s.requests.find((r) => r.id === id)?.sourceUrl)?.kind === 'spotify',
+      )
+      .slice(0, 2);
+    let live = true;
+    for (const id of ids) {
+      playerApi
+        .youtube(eventId, id)
+        .then((r) => live && setYtIds((m) => ({ ...m, [id]: r.videoIds ?? [] })))
+        .catch(() => undefined);
+    }
+    return () => {
+      live = false;
+    };
+    // Only when the forecast or sign-in changes; `s` and `ytIds` are read, not watched.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queueHead, spotifyStatus, eventId]);
+
   const startFile = useCallback(
     async (id: string, track: LocalTrack, title: string, artist: string | null) => {
       const a = audio.current;
       if (!a || current.current) return;
       const url = URL.createObjectURL(track.file);
-      current.current = { id, reported: false, url };
+      current.current = { id, reported: false, url, offline: nextOffline.current };
       setAudioId(id);
       a.src = url;
       try {
@@ -316,7 +456,7 @@ export function PlayerConsole({
 
   const startEmbed = useCallback((id: string, src: Source) => {
     if (current.current) return;
-    current.current = { id, reported: false, url: '', src };
+    current.current = { id, reported: false, url: '', src, offline: nextOffline.current };
     setAudioId(id);
     setEmbed({ id, source: src });
     setUnlocked(true);
@@ -349,30 +489,27 @@ export function PlayerConsole({
     startEmbed,
   ]);
 
-  async function onPlaying(durationMs: number | null) {
+  function onPlaying(durationMs: number | null) {
     const c = current.current;
-    const l = lease.current;
-    if (!c || c.reported || !l) return;
+    if (!c || c.reported || !lease.current) return;
     c.reported = true;
-    try {
-      await playerApi.started(eventId, l, c.id, durationMs);
-    } catch (e) {
-      stopAudio();
-      if (e instanceof ApiError && e.code === 'STALE_VERSION') {
-        setNotice('The queue changed before that song started, so it was not counted.');
-      }
-      guard(e);
-    }
-    stream.refresh();
+    setDone((d) => new Set(d).add(c.id));
+    report({
+      kind: 'started',
+      requestId: c.id,
+      at: Date.now(),
+      durationMs,
+      offline: c.offline === true,
+    });
   }
 
-  async function onEnded() {
+  /** The next song starts straight away; the server hears about both through the outbox. */
+  function onEnded() {
     const c = current.current;
-    const l = lease.current;
-    if (!c || !l) return;
+    if (!c || !lease.current) return;
     stopAudio();
-    if (c.reported) await playerApi.finished(eventId, l, c.id, 'PLAYED').catch(guard);
-    stream.refresh();
+    if (c.reported)
+      report({ kind: 'finished', requestId: c.id, at: Date.now(), outcome: 'PLAYED' });
   }
 
   async function onMediaError(why?: EmbedFailure) {
@@ -410,7 +547,8 @@ export function PlayerConsole({
       }
       setYtIds((m) => ({ ...m, [c.id]: [] }));
     }
-    if (c.reported) await playerApi.finished(eventId, l, c.id, 'FAILED').catch(guard);
+    if (c.reported)
+      report({ kind: 'finished', requestId: c.id, at: Date.now(), outcome: 'FAILED' });
     else setFailed((f) => new Set(f).add(c.id));
     setNotice(
       why === 'account'
@@ -471,6 +609,18 @@ export function PlayerConsole({
 
   if (!s) return null;
 
+  // The next song waits in its own cued player while this one plays (YouTube and Spotify embeds).
+  const cued =
+    audioId !== null &&
+    reserved &&
+    reserved.id !== audioId &&
+    !match &&
+    source &&
+    !cuedFailed.has(reserved.id) &&
+    !(spotify && source.kind === 'spotify')
+      ? { id: reserved.id, source }
+      : null;
+
   const manualPlayingId =
     nowPlaying && audioId !== nowPlaying.track.requestId ? nowPlaying.track.requestId : null;
   const canStart = leaseState === 'held' && s.view.state === 'ACTIVE' && !nowPlaying;
@@ -480,13 +630,10 @@ export function PlayerConsole({
     <details className="card stack">
       <summary>Sound check and audio files (optional, {library.length} loaded)</summary>
       <button className="btn" disabled={checking} onClick={() => void soundCheck()}>
-        {checking ? 'Playing…' : 'Play test chime'}
+        <Volume2 aria-hidden size={18} /> {checking ? 'Playing…' : 'Play test chime'}
       </button>
-      <p className="muted">
-        Choose audio files you are allowed to play. They stay on this device and are never uploaded.
-      </p>
       <label className="btn">
-        Choose files
+        <FileAudio aria-hidden size={18} /> Choose files
         <input
           type="file"
           multiple
@@ -499,7 +646,7 @@ export function PlayerConsole({
         />
       </label>
       <label className="btn">
-        Choose a folder
+        <FolderOpen aria-hidden size={18} /> Choose a folder
         <input
           type="file"
           multiple
@@ -517,20 +664,15 @@ export function PlayerConsole({
           checked={remember}
           onChange={(e) => void toggleRemember(e.target.checked)}
         />
-        <span>
-          Remember these files on this device
-          <span className="muted small">
-            {' '}
-            Stores copies in this browser&apos;s private storage. Only tick this if the music owner
-            permits copies, and untick to delete them. The browser may remove them; just choose the
-            files again.
-          </span>
-        </span>
+        <span>Remember these files on this device</span>
       </label>
-      <p className="muted small">
-        Only play recordings you are licensed to play at this venue. Qroove never streams or copies
-        music: songs play in the music service&apos;s own player.
-      </p>
+      <InfoTip label="About audio files and licences">
+        Choose audio files you are allowed to play. They stay on this device and are never uploaded.
+        Remembering stores copies in this device&apos;s private storage: only tick it if the music
+        owner permits copies, and untick to delete them. Remembered files keep playing with no
+        network. Only play recordings you are licensed to play at this venue. Qroove never streams
+        or copies music: songs play in the music service&apos;s own player.
+      </InfoTip>
     </details>
   );
 
@@ -550,16 +692,23 @@ export function PlayerConsole({
           </button>
         </div>
       ) : null}
-      {embed ? (
-        <EmbedPlayer
-          key={embed.id}
-          source={embed.source}
-          spotify={spotify}
-          onPlaying={(ms) => void onPlaying(ms)}
-          onEnded={() => void onEnded()}
-          onFailed={(why) => void onMediaError(why)}
-        />
-      ) : null}
+      {[embed, cued].map((x) =>
+        x ? (
+          <EmbedPlayer
+            key={x.id}
+            source={x.source}
+            spotify={spotify}
+            armed={x === embed}
+            onPlaying={(ms) => x === embed && onPlaying(ms)}
+            onEnded={() => x === embed && onEnded()}
+            onFailed={(why) => {
+              // A cued player that fails is dropped; the song gets a fresh player when its turn comes.
+              if (x === embed) void onMediaError(why);
+              else setCuedFailed((f) => new Set(f).add(x.id));
+            }}
+          />
+        ) : null,
+      )}
       {embed && spotify ? (
         <button
           className="btn"
@@ -572,6 +721,16 @@ export function PlayerConsole({
         </button>
       ) : null}
       {/* Native controls keep the player usable without our UI (lock screen, headphones). */}
+      {offline || unconfirmed > 0 ? (
+        <p className="warning small offline-line" role="status">
+          <WifiOff aria-hidden size={16} />{' '}
+          {unconfirmed >= OFFLINE_SONGS && !audioId
+            ? 'No network: waiting to reconnect.'
+            : `No network: playing on (${Math.max(0, OFFLINE_SONGS - unconfirmed)} more song${
+                OFFLINE_SONGS - unconfirmed === 1 ? '' : 's'
+              } ready).`}
+        </p>
+      ) : null}
       <audio
         ref={audio}
         controls
@@ -622,22 +781,28 @@ export function PlayerConsole({
                 This song will play from YouTube, in YouTube's own player.
               </p>
             ) : source?.kind === 'spotify' && spotifyStatus === 'out' ? (
-              <>
-                <a
-                  className="btn"
-                  href={`/api/spotify/login?return=${encodeURIComponent(`/admin/${eventId}`)}`}
-                >
-                  Log in with Spotify
-                </a>
-                <p className="muted small">
-                  Needs Spotify Premium. Without it, Spotify may offer only a preview.
+              // Spotify playback is for pilot accounts: one tap further away (YouTube is the default).
+              <details className="more-options">
+                <summary className="btn ghost small" aria-label="More ways to play">
+                  More <ChevronDown aria-hidden size={16} />
+                </summary>
+                <p className="row">
+                  <SignInButton
+                    href={`/api/spotify/login?return=${encodeURIComponent(`/admin/${eventId}`)}`}
+                  >
+                    Spotify
+                  </SignInButton>
+                  <InfoTip label="About Spotify playback">
+                    Needs Spotify Premium on the pilot list. Without it, Spotify may offer only a
+                    preview.
+                  </InfoTip>
                 </p>
-              </>
+              </details>
             ) : source?.kind === 'spotify' && spotifyStatus === 'problem' ? (
-              <p className="muted small">
+              <InfoTip label="Why Spotify's embedded player is used">
                 Spotify&apos;s player would not start here, so its embedded player is used. This
                 needs a Premium sign-in at open.spotify.com in this browser.
-              </p>
+              </InfoTip>
             ) : null}
             <button
               className="btn primary"

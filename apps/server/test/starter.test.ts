@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createStarter } from '../src/ingestion/starter.js';
+import type { Playlist } from '../src/ingestion/playlist.js';
 
-const list = (prefix: string, n: number) => ({
+const list = (prefix: string, n: number): Playlist => ({
+  platform: 'spotify',
   tracks: Array.from({ length: n }, (_, i) => ({
     title: `${prefix}${i}`,
     artist: 'A',

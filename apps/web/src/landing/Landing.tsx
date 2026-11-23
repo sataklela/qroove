@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { PartyPopper, QrCode, ScanLine, SlidersHorizontal } from 'lucide-react';
 import { adminApi, organiserPath } from '../admin/adminApi';
 import { api, ApiError } from '../shared/api';
 import { CodeInput } from '../shared/CodeInput';
+import { InfoTip } from '../shared/InfoTip';
+import { isApp, scanRoomCode } from '../shared/native';
 
 /** Everything fits one phone screen: the code boxes come first, like a quiz app. */
 export function Landing() {
@@ -10,6 +13,7 @@ export function Landing() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const go = useNavigate();
+  const app = isApp();
 
   async function enter(c: string) {
     setBusy(true);
@@ -62,19 +66,43 @@ export function Landing() {
       <div className="landing-msg" role="status" aria-live="polite">
         {problem ? (
           <p className="error">{problem}</p>
+        ) : app ? (
+          <button
+            type="button"
+            className="btn"
+            disabled={busy}
+            onClick={() =>
+              void scanRoomCode().then((path) => {
+                if (path) go(path);
+                else if (path === null) setProblem('That is not a Qroove room code.');
+              })
+            }
+          >
+            <ScanLine aria-hidden size={20} /> Scan QR
+          </button>
         ) : (
-          <p className="muted">Or scan the organiser’s QR code with your camera.</p>
+          <p className="muted landing-hint">
+            <QrCode aria-hidden size={20} /> or scan the QR
+          </p>
         )}
       </div>
       <div className="landing-actions">
-        <button type="button" className="btn primary" disabled={busy} onClick={() => void create()}>
-          Start an event now
+        <button
+          type="button"
+          className="btn primary landing-host"
+          disabled={busy}
+          onClick={() => void create()}
+        >
+          <PartyPopper aria-hidden size={22} /> Host an event
         </button>
+        <Link to="/new" className="btn ghost" aria-label="Plan in detail" title="Plan in detail">
+          <SlidersHorizontal aria-hidden size={20} />
+        </Link>
+        <InfoTip label="What Host an event sets up">
+          2 hours · Salsa and Bachata in turn · 20 songs each. Change any of it once the music is
+          on.
+        </InfoTip>
       </div>
-      <p className="muted small landing-defaults">
-        2 hours · Salsa and Bachata in turn · 20 songs each. Change any of it once the music is on.{' '}
-        <Link to="/new">Plan in detail</Link>
-      </p>
     </div>
   );
 }

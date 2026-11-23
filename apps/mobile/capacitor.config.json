@@ -1,0 +1,14 @@
+{
+  "appId": "com.sataklela.qroove",
+  "appName": "Qroove",
+  "webDir": "www",
+  "server": {
+    "url": "https://qroove.sataklela.com",
+    "androidScheme": "https",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "backgroundColor": "#1c1b1f",
+    "allowMixedContent": false
+  }
+}

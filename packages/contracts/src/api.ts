@@ -173,12 +173,21 @@ export const PlayerStartedBody = z.object({
   epoch: z.number().int(),
   requestId: Id,
   durationMs: z.number().int().positive().nullable().optional(),
+  /** When it really started (ms since epoch), for a report sent late after a network drop. */
+  at: z.number().int().positive().optional(),
+  /**
+   * Started without the server (ADR 0029): the player went on to the forecast next song while
+   * offline. The server accepts it even if it is no longer the reservation.
+   */
+  offline: z.boolean().optional(),
 });
 export const PlayerFinishedBody = z.object({
   leaseToken: z.string(),
   epoch: z.number().int(),
   requestId: Id,
   outcome: z.enum(['PLAYED', 'FAILED']),
+  /** When it really ended, for a late report (see `PlayerStartedBody.at`). */
+  at: z.number().int().positive().optional(),
 });
 export const PlayerRadioStartedBody = z.object({
   leaseToken: z.string(),

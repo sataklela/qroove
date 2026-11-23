@@ -2,8 +2,8 @@
 
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
-**Current phase:** — (all phases done; Phase 18 fewest-taps pass added 2026-11-11)
-**Next session starts with:** Phase 18 browser and phone checks: follow `docs/src/runbook/fewest-taps-checks.md` (set-up, sequences O1–O11 and G1–G12 with tap targets, what is and is not verified). Also: put the two house playlist links in `packages/config/src/starter.ts` (or set `STARTER_PLAYLIST_SALSA` / `STARTER_PLAYLIST_BACHATA` on Railway), then try the one-tap flow on two real phones (swipes on iOS and Android). Radio fallback: check it on a real iPhone, Android phone and Bluetooth speaker, (radio is already on by default, ADR 0023). Then the user-side items under "Blocked / needs user" and the pilot validation questions.
+**Current phase:** 19–20 — Android app (Capacitor) + gapless playback on a weak network (2026-11-23)
+**Next session starts with:** phone checks for the Android app over wireless adb (runbook `docs/src/runbook/android.md` → "Check on a phone"; needs the owner's phone on Tailscale + a pairing code). Then fix the pre-existing e2e break in `tests/e2e/flow.spec.ts` (it expects *Mark started*, but starter songs now have playable links and show *Start playing*; fails on `main` too). Earlier carry-overs: Phase 18 phone checks, house playlist links.
 
 ## Phases
 
@@ -18,6 +18,8 @@ Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 - [x] 8 — Hardening, e2e, a11y, perf
 - [x] 9 — Deploy (Railway + Cloudflare + Firestore)
 - [x] 10 — Release 0.1.0 + transfer readiness
+- [x] 19 — Android app (Capacitor shell, sideloaded; TWA draft superseded) — ADR 0029
+- [x] 20 — Gapless playback on a weak network, icon-first UI — ADR 0029
 
 ## Decisions made (during planning, 2026-10-29)
 
@@ -251,3 +253,14 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 - **Not verified:** on any phone. Which step actually cut the sound (page frozen, stream stalled, lease lost) is not known; the wake lock only works while the Qroove page is on screen and is refused in battery-saver mode. If radio still dies with the screen locked by hand, look at the stream stall path and the 30 s lease first.
 - Tests: web +5 (hook 3, stall 1, console 1).
 
+
+
+### Phases 19–20 — Android app (Capacitor) and gapless playback (2026-11-23)
+
+- Recovered the cloud session's Phase 19 plan (TWA, branch `ccr-102de8df-4blg7d`, never merged). Owner chose a Capacitor shell instead, 2 songs of offline cover, real-device QA over wireless adb. Kept from that branch: assetlinks route + test, `BRAND.android`, CI skeleton, CLAUDE.md working rules; ADR 0028 superseded by 0029.
+- Server: reserve while playing (`recompute`), late/offline `started`/`finished` (`at`, `offline`), app sign-in handoff (`api/appHandoff.ts`). Tests +5.
+- Web: outbox + `pickNext` (`player/outbox.ts`), cued next player (`EmbedPlayer` `armed`), YouTube matches fetched ahead, offline status line; `shared/native.ts`, `InfoTip`, `SignInButton`; lucide icons; Spotify under More. Tests +6.
+- `apps/mobile`: Capacitor 8.6.0, minSdk 26 (QR scanner), deep links + `auth` scheme, signing from keystore.properties/env, icons from `brand/` (`scripts/android-icons.mjs`).
+- Not possible: caching YouTube/Spotify audio (terms + project rules). A long outage still stops streamed songs once their buffer runs out; only remembered local files play with no network.
+- Verified 2026-11-23: lint, typecheck, unit tests (server 185, web 134), build, debug + signed release APK. e2e: 6 of 7 pass; `flow.spec.ts` fails at the manual-mode step on `main` too (pre-existing, see Next). Fixed two a11y issues e2e found (radio group label, focusable guest queue).
+- Release key created on the VPS (`/srv/qroove/secrets/`, owner to back up offline); GitHub `ANDROID_*` secrets and Coolify `ANDROID_CERT_SHA256` set.

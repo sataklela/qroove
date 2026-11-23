@@ -76,10 +76,33 @@ export function heartbeat(deps: Deps, input: LeaseInput) {
   });
 }
 
-/** "Started" is when a song counts: history updates here, not when it was reserved. */
+/** A late report's time, kept between the lease claim and now (a phone clock may be off). */
+const clampAt = (at: number | undefined, from: number, now: number) =>
+  at === undefined ? now : Math.min(now, Math.max(from, at));
+
+const OFFLINE_STARTABLE: ReadonlySet<string> = new Set([
+  'RESERVED_NEXT',
+  'QUEUED',
+  'INELIGIBLE_TEMPORARILY',
+  'OVERFLOW',
+]);
+
+/**
+ * "Started" is when a song counts: history updates here, not when it was reserved.
+ *
+ * `offline` (ADR 0029): the player lost the network and went on to the next song it had been
+ * shown. If that song is no longer the reservation but is still waiting, it is started anyway
+ * (the reservation goes back to the queue). If it has since been withdrawn or removed, nothing is
+ * recorded and `recorded: false` lets the player drop the report.
+ */
 export function reportStarted(
   deps: Deps,
-  input: LeaseInput & { requestId: string; durationMs?: number | null },
+  input: LeaseInput & {
+    requestId: string;
+    durationMs?: number | null;
+    at?: number | undefined;
+    offline?: boolean | undefined;
+  },
 ) {
   return runCommand(deps, input.eventId, {}, async (c) => {
     const l = checkLease(c.event, input);
@@ -89,11 +112,25 @@ export function reportStarted(
     if (c.event.state !== 'ACTIVE') throw new DomainError('EVENT_NOT_ACTIVE');
     const w = await loadWork(c);
     if (breakInProgress(w)) throw new DomainError('EVENT_NOT_ACTIVE');
-    if (np || c.event.reservation?.requestId !== input.requestId) {
+    let req = w.requests.get(input.requestId);
+    if (np) throw new DomainError('STALE_VERSION');
+    if (input.offline === true && req && c.event.reservation?.requestId !== req.id) {
+      if (req.state === 'PLAYED' || req.state === 'SKIPPED' || req.state === 'PLAYING') {
+        return { ok: true as const, version: c.event.version };
+      }
+      if (!OFFLINE_STARTABLE.has(req.state)) {
+        audit(c, 'player.offline_unrecorded', 'player', { requestId: req.id, state: req.state });
+        return { ok: true as const, recorded: false, version: c.event.version };
+      }
+      const held = c.event.reservation && w.requests.get(c.event.reservation.requestId);
+      if (held) w.setState(held, 'QUEUED', c.now);
+      req = w.setState(req, 'RESERVED_NEXT', c.now);
+      w.event = { ...w.event, reservation: null };
+    } else if (c.event.reservation?.requestId !== input.requestId) {
       throw new DomainError('STALE_VERSION');
     }
-    const req = w.requests.get(input.requestId);
     if (!req || req.state !== 'RESERVED_NEXT') throw new DomainError('STALE_VERSION');
+    const startedAt = clampAt(input.at, l.claimedAt, c.now);
 
     // Consume only the locks this request holds, so a reviewed lookalike cannot overwrite another's.
     const lockKeys: string[] = [];
@@ -111,19 +148,23 @@ export function reportStarted(
       requestId: req.id,
       ownerId: req.ownerId,
       style: req.style,
-      startedAt: c.now,
+      startedAt,
       endedAt: null,
       outcome: null,
     });
     w.event = {
-      ...c.event,
+      ...w.event,
       playbackSeq: seq,
       reservation: null,
-      nowPlaying: { requestId: req.id, startedAt: c.now, durationMs, playbackSeq: seq },
+      nowPlaying: { requestId: req.id, startedAt, durationMs, playbackSeq: seq },
       lease: { ...l, heartbeatAt: c.now, expiresAt: c.now + LEASE_TTL_MS },
     };
     recordPlay(w, playing);
-    audit(c, 'player.started', 'player', { requestId: req.id, epoch: input.epoch });
+    audit(c, 'player.started', 'player', {
+      requestId: req.id,
+      epoch: input.epoch,
+      ...(input.offline === true ? { offline: true } : {}),
+    });
     return { ok: true as const, version: commit(c, w) };
   });
 }
@@ -131,10 +172,14 @@ export function reportStarted(
 /** Idempotent. `FAILED` after start still counts toward the owner's quota (SPEC §3.3). */
 export function reportFinished(
   deps: Deps,
-  input: LeaseInput & { requestId: string; outcome: 'PLAYED' | 'FAILED' },
+  input: LeaseInput & {
+    requestId: string;
+    outcome: 'PLAYED' | 'FAILED';
+    at?: number | undefined;
+  },
 ) {
   return runCommand(deps, input.eventId, {}, async (c) => {
-    checkLease(c.event, input);
+    const l = checkLease(c.event, input);
     const req = await c.tx.getRequest(input.requestId);
     if (!req) throw new DomainError('NOT_FOUND');
     if (req.state === 'PLAYED' || req.state === 'SKIPPED') {
@@ -146,7 +191,8 @@ export function reportFinished(
     const pb = await readPlaying(c);
     const w = await loadWork(c);
     const outcome: PlaybackOutcome = input.outcome;
-    closePlaying(c, w, pb, outcome === 'PLAYED' ? 'PLAYED' : 'SKIPPED', outcome);
+    const endedAt = clampAt(input.at, l.claimedAt, c.now);
+    closePlaying(c, w, pb, outcome === 'PLAYED' ? 'PLAYED' : 'SKIPPED', outcome, endedAt);
     audit(c, 'player.finished', 'player', { requestId: req.id, outcome });
     return { ok: true as const, version: commit(c, w) };
   });

@@ -7,9 +7,14 @@ import { PlayerConsole } from './PlayerConsole';
 type Events = import('./embed').EmbedEvents;
 let embedEvents: Events | null = null;
 let embedSource: { kind: string; id: string; expectedMs?: number } | null = null;
+/** Every player mounted, by video/track id: its events and whether it was only cued. */
+const mounts = new Map<string, { ev: Events; cued: boolean }>();
 vi.mock('./embed', async (real) => ({
   ...(await real<typeof import('./embed')>()),
-  mountEmbed: (_el: HTMLElement, src: typeof embedSource, ev: Events) => {
+  loadYouTube: async () => undefined,
+  mountEmbed: (_el: HTMLElement, src: typeof embedSource, ev: Events, hold?: Promise<void>) => {
+    mounts.set(src!.id, { ev, cued: hold !== undefined });
+    if (hold) return () => undefined;
     embedSource = src;
     embedEvents = ev;
     return () => undefined;
@@ -28,6 +33,8 @@ let adminState: Record<string, unknown>;
 let failPath: string | null;
 let ytIds: string[];
 let onRadioStarted: (() => void) | null;
+/** Player reports fail as if the network were gone (the page itself stays loaded). */
+let netDown = false;
 
 const rules = { rulesVersion: 1, enabledStyles: ['salsa'], runCaps: {}, submissionLimit: 5 };
 const mkState = (over: { reserved?: boolean; playing?: boolean; epoch?: number | null } = {}) => ({
@@ -75,6 +82,9 @@ beforeEach(() => {
   ytIds = [];
   onRadioStarted = null;
   sessionStorage.clear();
+  localStorage.clear();
+  mounts.clear();
+  netDown = false;
   adminState = mkState({ reserved: true });
   vi.stubGlobal('EventSource', undefined);
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
@@ -84,6 +94,7 @@ beforeEach(() => {
       body: init.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : undefined,
     };
     calls.push(c);
+    if (netDown && /\/player\/(started|finished)$/.test(url)) throw new TypeError('offline');
     if (failPath && url.endsWith(failPath)) {
       return new Response(
         JSON.stringify({ error: { code: 'STALE_LEASE', message: 'Stale.', action: 'Retry.' } }),
@@ -449,5 +460,85 @@ describe('PlayerConsole radio fallback', () => {
     open();
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/player/claim'))).toBe(true));
     expect(screen.queryByRole('button', { name: 'Start radio' })).toBeNull();
+  });
+});
+
+type Loose = { requests: unknown[]; view: Record<string, unknown> };
+describe('PlayerConsole between songs on a weak network (ADR 0029)', () => {
+  const yt = (id: string, n: number, state: string) => ({
+    id,
+    state,
+    title: `Song ${n}`,
+    artist: null,
+    style: 'salsa',
+    durationMs: 200_000,
+    sourceUrl: `https://www.youtube.com/watch?v=${`v${n}`.padEnd(11, '0')}`,
+  });
+  const vid = (n: number) => `v${n}`.padEnd(11, '0');
+  const q = (id: string) => ({ requestId: id, title: id, artist: null, durationMs: 200_000 });
+  const playing = (id: string, reservedId: string | null, rest: string[]) => {
+    const st = mkState({ epoch: 4 }) as unknown as Loose;
+    st.requests = ['a', 'b', 'c', 'd'].map((id2, i) =>
+      yt(id2, i + 1, id2 === id ? 'PLAYING' : id2 === reservedId ? 'RESERVED_NEXT' : 'QUEUED'),
+    );
+    st.view.nowPlaying = {
+      startedAt: 1,
+      track: { requestId: id, title: id, artist: null },
+    };
+    st.view.queue = [...(reservedId ? [reservedId] : []), ...rest].map(q);
+    return st;
+  };
+
+  it('cues the next song, starts it the moment one ends, and plays on for two songs offline', async () => {
+    const st = mkState({ epoch: 4 }) as unknown as Loose;
+    st.requests = [
+      yt('a', 1, 'RESERVED_NEXT'),
+      yt('b', 2, 'QUEUED'),
+      yt('c', 3, 'QUEUED'),
+      yt('d', 4, 'QUEUED'),
+    ];
+    st.view.queue = ['a', 'b', 'c', 'd'].map(q);
+    adminState = st;
+    open();
+    await ready();
+    await userEvent.click(screen.getByRole('button', { name: 'Start playing' }));
+    await waitFor(() => expect(mounts.get(vid(1))?.cued).toBe(false));
+    // The server hears the start and (ADR 0029) reserves the next song while this one plays.
+    adminState = playing('a', 'b', ['c', 'd']);
+    act(() => mounts.get(vid(1))!.ev.onPlaying(200_000));
+    await waitFor(() => expect(mounts.get(vid(2))?.cued).toBe(true));
+
+    // The network drops just as the song ends: the next one starts anyway, from its cued player.
+    netDown = true;
+    act(() => mounts.get(vid(1))!.ev.onEnded());
+    act(() => mounts.get(vid(2))!.ev.onPlaying(200_000));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/No network/));
+    // ... and the one after that, from the last forecast this device saw.
+    await waitFor(() => expect(mounts.get(vid(3))).toBeDefined());
+    act(() => mounts.get(vid(2))!.ev.onEnded());
+    await waitFor(() => expect(embedSource?.id).toBe(vid(3)));
+    act(() => mounts.get(vid(3))!.ev.onPlaying(200_000));
+    act(() => mounts.get(vid(3))!.ev.onEnded());
+    // Two songs without the server is the limit: it waits for the network.
+    await waitFor(() =>
+      expect(screen.getByText('No network: waiting to reconnect.')).toBeInTheDocument(),
+    );
+    expect(mounts.get(vid(4))).toBeUndefined();
+
+    // Back online: the reports go out in order, with the real times, the forecast song as offline.
+    netDown = false;
+    const before = calls.length;
+    act(() => void window.dispatchEvent(new Event('online')));
+    await waitFor(() =>
+      expect(
+        calls
+          .slice(before)
+          .filter((c) => /\/player\/(started|finished)$/.test(c.url))
+          .map((c) => `${c.url.split('/').pop()}:${String(c.body?.requestId)}`),
+      ).toEqual(['finished:a', 'started:b', 'finished:b', 'started:c', 'finished:c']),
+    );
+    const startC = calls.find((c) => c.url.endsWith('/started') && c.body?.requestId === 'c');
+    expect(startC?.body).toMatchObject({ offline: true });
+    expect(typeof startC?.body?.at).toBe('number');
   });
 });

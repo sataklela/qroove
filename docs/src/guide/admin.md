@@ -4,7 +4,7 @@ You run an event from your phone. There is no account: control belongs to the br
 
 ## Start an event: one tap
 
-On the home page, tap **Start an event now**. That is all: you land on the organiser page with the event already
+On the home page, tap **Host an event**. That is all: you land on the organiser page with the event already
 running, on the defaults.
 
 | Setting          | Default                                                        |

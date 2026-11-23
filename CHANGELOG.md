@@ -3,7 +3,17 @@
 All notable changes are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [SemVer](https://semver.org/).
 
-## Unreleased
+## [0.4.0] — 2026-11-23
+
+### Added
+
+- **Android app** (`apps/mobile`, ADR 0029): a Capacitor shell around the live site, handed out as an APK (no Google Play). Room links and QR codes open the app (`/.well-known/assetlinks.json` from `ANDROID_CERT_SHA256`); **Scan QR** on the home screen; the screen stays on natively while playing; Google and Spotify sign-in run in a Custom Tab and come back through a one-time code (`POST /api/app/redeem`).
+- **No gap between songs, even on a weak network.** The next song is reserved while the current one plays and waits cued in its own player; when a song ends the next starts at once and the server is told afterwards (in order, with the real times). If the server cannot be reached the player goes on for up to 2 songs from the last forecast, then waits. `player/started` and `player/finished` accept `at`, and `started` accepts `offline`. YouTube/Spotify audio is never cached.
+
+### Changed
+
+- Icons first: Google/YouTube is the default sign-in, Spotify (pilot) sits under **More**; explanations moved behind an (i). Home: **Host an event** (was "Start an event now").
+- While a song plays, the next song is already reserved; a request that arrives mid-song competes for the song after.
 
 - Privacy page: full Google user data disclosures (access, use, sharing, protection, retention/deletion, Limited Use) for OAuth verification.
 - "Sign out of Google" button under My YouTube playlist; sign-out now also revokes the grant at Google. Privacy contact email added.
