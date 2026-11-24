@@ -13,6 +13,7 @@ import {
 import { sameHash, sha256 } from '../ids.js';
 import { closePlaying, readPlaying, requireLive } from '../lifecycle.js';
 import { breakInProgress, recordPlay } from '../recompute.js';
+import { takeOut } from './requests.js';
 
 interface LeaseInput {
   eventId: string;
@@ -194,6 +195,28 @@ export function reportFinished(
     const endedAt = clampAt(input.at, l.claimedAt, c.now);
     closePlaying(c, w, pb, outcome === 'PLAYED' ? 'PLAYED' : 'SKIPPED', outcome, endedAt);
     audit(c, 'player.finished', 'player', { requestId: req.id, outcome });
+    return { ok: true as const, version: commit(c, w) };
+  });
+}
+
+/**
+ * The reserved song has no player on this device (e.g. its owner blocks embedding): it is taken
+ * out as UNAVAILABLE, which frees its owner's slot, and the next song is reserved at once, so the
+ * music does not stop for a tap. Idempotent.
+ */
+export function reportUnplayable(deps: Deps, input: LeaseInput & { requestId: string }) {
+  return runCommand(deps, input.eventId, {}, async (c) => {
+    checkLease(c.event, input);
+    requireLive(c.event.state);
+    const req = await c.tx.getRequest(input.requestId);
+    if (!req) throw new DomainError('NOT_FOUND');
+    if (req.state === 'UNAVAILABLE') return { ok: true as const, version: c.event.version };
+    if (req.state !== 'RESERVED_NEXT' || c.event.reservation?.requestId !== req.id) {
+      throw new DomainError('STALE_VERSION');
+    }
+    const w = await loadWork(c);
+    await takeOut(c, w, req, 'UNAVAILABLE', 'unplayable');
+    audit(c, 'player.unplayable', 'player', { requestId: req.id });
     return { ok: true as const, version: commit(c, w) };
   });
 }

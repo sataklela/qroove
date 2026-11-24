@@ -588,7 +588,21 @@ export function PlayerConsole({
     }
     if (c.reported)
       report({ kind: 'finished', requestId: c.id, at: Date.now(), outcome: 'FAILED' });
-    else setFailed((f) => new Set(f).add(c.id));
+    else {
+      // Never started: skip it so the music goes on without a tap (the server reserves the next).
+      // Marked failed first, so it is not started again while the skip is on its way.
+      setFailed((f) => new Set(f).add(c.id));
+      const title = s?.requests.find((r) => r.id === c.id)?.title ?? 'That song';
+      const skipped = await playerApi
+        .unplayable(eventId, l, c.id)
+        .then(() => true)
+        .catch(() => false);
+      if (skipped) {
+        setNotice(`${title} could not be played here, so it was skipped.`);
+        stream.refresh();
+        return;
+      }
+    }
     setNotice(
       why === 'account'
         ? 'Spotify refused this account. It needs Premium and must be on the Qroove pilot list.'
@@ -825,7 +839,7 @@ export function PlayerConsole({
                 <summary className="btn ghost small" aria-label="More ways to play">
                   More <ChevronDown aria-hidden size={16} />
                 </summary>
-                <p className="row">
+                <div className="row">
                   <SignInButton
                     href={`/api/spotify/login?return=${encodeURIComponent(`/admin/${eventId}`)}`}
                   >
@@ -835,7 +849,7 @@ export function PlayerConsole({
                     Needs Spotify Premium on the pilot list. Without it, Spotify may offer only a
                     preview.
                   </InfoTip>
-                </p>
+                </div>
               </details>
             ) : source?.kind === 'spotify' && spotifyStatus === 'problem' ? (
               <InfoTip label="Why Spotify's embedded player is used">

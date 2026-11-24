@@ -111,6 +111,9 @@ export const playerApi = {
     request<{ ok: true }>('POST', `${player(id)}/finished`, {
       body: { ...l, requestId, outcome, ...(at ? { at: Math.round(at) } : {}) },
     }),
+  /** The reserved song cannot be played on this device: skip it (the next one is reserved). */
+  unplayable: (id: string, l: LeaseCreds, requestId: string) =>
+    request<{ ok: true }>('POST', `${player(id)}/unplayable`, { body: { ...l, requestId } }),
   /** YouTube videos that are the same recording as a Spotify song, best first (may be empty). */
   youtube: (id: string, requestId: string) =>
     request<{ videoIds: string[] }>('GET', `${player(id)}/youtube/${requestId}`),

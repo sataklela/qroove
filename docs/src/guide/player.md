@@ -31,8 +31,13 @@ studio request. You can also pick a file for a single song by hand.
 - The song reserved next is shown with its match status. Press **Start** once: the first tap unlocks audio
   on phones and tablets. After that, the next reserved songs start by themselves.
 - A song counts as played only when audio actually begins (the browser's `playing` event) and is finished
-  when the file ends. A file that fails to play after starting is recorded as skipped; before starting, the
-  card falls back to manual mode.
+  when the file ends. A song that fails to play after starting is recorded as skipped.
+- **A song that cannot play here is skipped by itself** (its video blocks embedding, Spotify offers only a
+  preview, the file will not open): it is taken out of the queue, its requester gets the slot back and sees
+  "Skipped: it could not be played here", and the next song starts with no tap. Only if the server cannot be
+  reached does the card fall back to manual mode for it.
+- After a reload or an app restart the playing song carries on from where it should be (YouTube and local
+  files; a Spotify song needs **Mark ended**).
 - **Manual mode** (no matching file): open the requester's link, play it however you are allowed to, then
   press **Mark started** and, when it finishes, **Mark ended**. A manually started song counts for fairness
   and duplicates like any other. Qroove never marks a song ended because a timer ran out, and it cannot

@@ -271,6 +271,34 @@ export function runCommandSuite(name: string, make: () => Promise<Repository>, s
       expect((await snap(deps, ev.eventId)).event.nowPlaying).toBeNull();
     });
 
+    it('skips a reserved song the player cannot play, frees its slot and reserves the next', async () => {
+      const { deps, ev, submit, player } = await setup();
+      const g1 = await guest(deps, ev.eventId);
+      const g2 = await guest(deps, ev.eventId);
+      await submit(g1, 1, 'salsa');
+      await submit(g2, 2, 'bachata');
+      const p = await player();
+      let s = await snap(deps, ev.eventId);
+      const bad = s.event.reservation!.requestId;
+      await cmd.reportUnplayable(deps, { ...p.lease, requestId: bad });
+      s = await snap(deps, ev.eventId);
+      expect(s.state(bad)).toBe('UNAVAILABLE');
+      const next = s.event.reservation?.requestId;
+      expect(next).toBeDefined();
+      expect(next).not.toBe(bad);
+      // Idempotent; only the current reservation can be skipped; a stale lease is refused.
+      await cmd.reportUnplayable(deps, { ...p.lease, requestId: bad });
+      await expectCode(
+        cmd.reportUnplayable(deps, { ...p.lease, epoch: 99, requestId: next! }),
+        'STALE_LEASE',
+      );
+      expect(await p.start()).toBe(next);
+      await expectCode(
+        cmd.reportUnplayable(deps, { ...p.lease, requestId: next! }),
+        'STALE_VERSION',
+      );
+    });
+
     it('does not show a waiting reason while a song plays and nothing else is ready', async () => {
       const { deps, ev, submit, player } = await setup();
       const g = await guest(deps, ev.eventId);

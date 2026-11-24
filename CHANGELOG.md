@@ -5,6 +5,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Unplayable songs are skipped automatically** (video blocks embedding, preview-only Spotify, a file that will not open): the player reports it with the new `POST /api/events/:id/player/unplayable`, the song becomes UNAVAILABLE ("Skipped: it could not be played here"), the requester's slot is freed and the next song starts with no tap. Manual mode remains only when the server cannot be reached.
+
 ### Fixed
 
 - Add music: a long list of your playlists scrolls on its own, so the genre buttons stay on screen on phones.
