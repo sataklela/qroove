@@ -3,7 +3,7 @@
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 **Current phase:** 19–20 — Android app (Capacitor) + gapless playback on a weak network (2026-11-23)
-**Next session starts with:** phone checks for the Android app over wireless adb (runbook `docs/src/runbook/android.md` → "Check on a phone"; needs the owner's phone on Tailscale + a pairing code). Then fix the pre-existing e2e break in `tests/e2e/flow.spec.ts` (it expects *Mark started*, but starter songs now have playable links and show *Start playing*; fails on `main` too). Earlier carry-overs: Phase 18 phone checks, house playlist links.
+**Next session starts with:** finish the Android phone checks that need the owner's taps: Google sign-in round trip in the Custom Tab, a room QR/link opening the app, the back button (runbook → "Check on a phone"). Done on a moto g35 (Android 16) 2026-11-24: install, native bridge, host, auto-advance (≈1.5 s gap), 2-song offline run + catch-up, screen kept on. Earlier carry-overs: Phase 18 phone checks, house playlist links.
 
 ## Phases
 
@@ -262,5 +262,5 @@ Qroove 0.1.0 is live at https://qroove.sataklela.com: fair queue scheduler, atte
 - Web: outbox + `pickNext` (`player/outbox.ts`), cued next player (`EmbedPlayer` `armed`), YouTube matches fetched ahead, offline status line; `shared/native.ts`, `InfoTip`, `SignInButton`; lucide icons; Spotify under More. Tests +6.
 - `apps/mobile`: Capacitor 8.6.0, minSdk 26 (QR scanner), deep links + `auth` scheme, signing from keystore.properties/env, icons from `brand/` (`scripts/android-icons.mjs`).
 - Not possible: caching YouTube/Spotify audio (terms + project rules). A long outage still stops streamed songs once their buffer runs out; only remembered local files play with no network.
-- Verified 2026-11-23: lint, typecheck, unit tests (server 185, web 134), build, debug + signed release APK. e2e: 6 of 7 pass; `flow.spec.ts` fails at the manual-mode step on `main` too (pre-existing, see Next). Fixed two a11y issues e2e found (radio group label, focusable guest queue).
+- Verified 2026-11-23: lint, typecheck, unit tests (server 185, web 134), build, debug + signed release APK. e2e: 7 of 7 (2026-11-24: `flow.spec.ts` now removes the starters ahead of the guest's song before the manual step). Fixed two a11y issues e2e found (radio group label, focusable guest queue).
 - Release key created on the VPS (`/srv/qroove/secrets/`, owner to back up offline); GitHub `ANDROID_*` secrets and Coolify `ANDROID_CERT_SHA256` set.

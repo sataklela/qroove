@@ -121,6 +121,17 @@ test('one tap → guests join by opening → add, withdraw → live settings →
   // Player in manual mode (no local file) ---------------------------------------------------
   // The radio fallback is on by default and may already be filling the gap; hand over at once
   // instead of waiting for its track change (about a minute, or the 4-minute cap).
+  // Starter songs have a player here (the guest's typed song does not): remove the starters
+  // ahead of it so the manual path is what gets reserved.
+  const rows = page.getByRole('region', { name: 'Queue' }).getByRole('listitem');
+  for (let i = 0; i < 10 && !(await rows.first().innerText()).includes('Song One'); i++) {
+    await rows
+      .first()
+      .getByRole('button', { name: /^Remove / })
+      .click();
+    await rows.first().getByRole('button', { name: 'Remove', exact: true }).click();
+    await page.waitForTimeout(300);
+  }
   const markStarted = page.getByRole('button', { name: 'Mark started' });
   const playNow = page.getByRole('button', { name: 'Play the queued song now' });
   await expect(markStarted.or(playNow)).toBeVisible();
