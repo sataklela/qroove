@@ -39,6 +39,7 @@ export default defineConfig({
           { text: 'Attendees', link: '/guide/attendee' },
           { text: 'Organisers', link: '/guide/admin' },
           { text: 'Player', link: '/guide/player' },
+          { text: 'Android app', link: '/guide/android' },
         ],
       },
       {

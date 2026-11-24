@@ -13,6 +13,10 @@ export const isApp = (): boolean => {
   }
 };
 
+/** An Android phone browsing the site (not the app): it can be offered the app. */
+export const isAndroidBrowser = (): boolean =>
+  !isApp() && typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+
 /**
  * Google/Spotify sign-in. Google refuses sign-in inside an app's WebView, so the app opens it in a
  * Chrome Custom Tab with `app=1`; the server then sends a one-time code back into the app (see

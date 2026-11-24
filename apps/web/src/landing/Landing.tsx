@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { PartyPopper, QrCode, ScanLine, SlidersHorizontal } from 'lucide-react';
+import { PartyPopper, QrCode, ScanLine, SlidersHorizontal, Smartphone } from 'lucide-react';
 import { adminApi, organiserPath } from '../admin/adminApi';
 import { api, ApiError } from '../shared/api';
 import { CodeInput } from '../shared/CodeInput';
 import { InfoTip } from '../shared/InfoTip';
-import { isApp, scanRoomCode } from '../shared/native';
+import { isAndroidBrowser, isApp, scanRoomCode } from '../shared/native';
 
 /** Everything fits one phone screen: the code boxes come first, like a quiz app. */
 export function Landing() {
@@ -103,6 +103,12 @@ export function Landing() {
           on.
         </InfoTip>
       </div>
+      {isAndroidBrowser() ? (
+        // Hosting from an Android phone: the app keeps the screen on and rides out a weak network.
+        <a className="btn ghost small landing-android" href="/docs/guide/android">
+          <Smartphone aria-hidden size={18} /> Android app
+        </a>
+      ) : null}
     </div>
   );
 }
