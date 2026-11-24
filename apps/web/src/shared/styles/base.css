@@ -1410,6 +1410,12 @@ body.console .layout main {
 .pl-picker > summary::-webkit-details-marker {
   display: none;
 }
+/* A long playlist list scrolls on its own, so the add buttons stay on screen. */
+.add-sheet .pl-picker .search-results {
+  max-height: 30dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .pl-added-note {
   color: #6fd08c;
   font-weight: 600;

@@ -3,7 +3,7 @@
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 **Current phase:** 19–20 — Android app (Capacitor) + gapless playback on a weak network (2026-11-23)
-**Next session starts with:** Android phone checks all done (2026-11-24, moto g35 Android 16): room link opens the app (App Link verified), guest join + add, Google sign-in round trip via Custom Tab, Spotify under More, install, native bridge, host, auto-advance (≈1.5 s gap), 2-song offline run + catch-up, screen kept on. Earlier carry-overs: Phase 18 phone checks, house playlist links.
+**Next session starts with:** Android phone checks all done (2026-11-24, moto g35 Android 16): room link opens the app (App Link verified), guest join + add, Google sign-in round trip via Custom Tab, Spotify under More, install, native bridge, host, auto-advance (≈1.5 s gap), 2-song offline run + catch-up, screen kept on. Also 2026-11-24: real touch drag-to-sort and add-from-playlist on Android; house playlists are live (starter songs). Left: the laptop player smoke test above.
 
 ## Phases
 
@@ -31,8 +31,7 @@ Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 ## Blocked / needs user
 
-- Connect the GitHub repo to the Railway service (Settings → Source; needs the Railway GitHub app authorised) for auto-deploy on `main`. Until then deploy with `railway up --ci --service web`.
-- Two-phone smoke test (checklist in `docs/src/runbook/deploy.md`).
+- Laptop-as-player smoke test with real YouTube playback (a browser on the VPS cannot do it: YouTube answers datacenter IPs with "Sign in to confirm that you're not a bot"). Guest-on-phone side verified 2026-11-24.
 
 ## Notes per phase
 
