@@ -97,7 +97,9 @@ function statusText(r: RequestDoc, agg: EventAggregate): string | null {
     case 'QUEUED':
       return paused ? 'Session paused' : null;
     case 'UNAVAILABLE':
-      return 'We could not find this song';
+      return r.removedReason === 'unplayable'
+        ? 'Skipped: it could not be played here'
+        : 'We could not find this song';
     case 'REJECTED':
       return 'Removed by the organiser';
     default:

@@ -189,6 +189,11 @@ export const PlayerFinishedBody = z.object({
   /** When it really ended, for a late report (see `PlayerStartedBody.at`). */
   at: z.number().int().positive().optional(),
 });
+export const PlayerUnplayableBody = z.object({
+  leaseToken: z.string(),
+  epoch: z.number().int(),
+  requestId: Id,
+});
 export const PlayerRadioStartedBody = z.object({
   leaseToken: z.string(),
   epoch: z.number().int(),

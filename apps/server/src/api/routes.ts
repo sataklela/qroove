@@ -9,6 +9,7 @@ import {
   JoinBody,
   PlayerClaimBody,
   PlayerFinishedBody,
+  PlayerUnplayableBody,
   PlayerHeartbeatBody,
   PlayerRadioStartedBody,
   PlayerReleaseBody,
@@ -609,6 +610,11 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
   app.post('/api/events/:id/player/finished', async (req) => {
     const { id } = parse(idParams, req.params);
     return cmd.reportFinished(deps, { eventId: id, ...parse(PlayerFinishedBody, req.body) });
+  });
+
+  app.post('/api/events/:id/player/unplayable', async (req) => {
+    const { id } = parse(idParams, req.params);
+    return cmd.reportUnplayable(deps, { eventId: id, ...parse(PlayerUnplayableBody, req.body) });
   });
 
   // Radio fallback (ADR 0023): the player says which station track is audible, and when it stops.

@@ -219,7 +219,7 @@ export function submitRequest(deps: Deps, input: SubmitInput) {
 const STARTED = new Set(['PLAYING', 'PLAYED', 'SKIPPED']);
 
 /** Shared by owner withdrawal and admin removal. `after` runs once all reads are done. */
-async function takeOut(
+export async function takeOut(
   c: Ctx,
   w: Work,
   req: RequestDoc,

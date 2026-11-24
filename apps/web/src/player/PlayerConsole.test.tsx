@@ -94,7 +94,8 @@ beforeEach(() => {
       body: init.body ? (JSON.parse(init.body as string) as Record<string, unknown>) : undefined,
     };
     calls.push(c);
-    if (netDown && /\/player\/(started|finished)$/.test(url)) throw new TypeError('offline');
+    if (netDown && /\/player\/(started|finished|unplayable)$/.test(url))
+      throw new TypeError('offline');
     if (failPath && url.endsWith(failPath)) {
       return new Response(
         JSON.stringify({ error: { code: 'STALE_LEASE', message: 'Stale.', action: 'Retry.' } }),
@@ -166,7 +167,7 @@ describe('PlayerConsole with a Spotify link', () => {
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/player/finished'))).toBe(true));
   });
 
-  it('falls back to the link and manual mode when only a preview is offered', async () => {
+  it('skips a song that only offers a preview, with no tap', async () => {
     withLink();
     const user = userEvent.setup();
     open();
@@ -174,9 +175,24 @@ describe('PlayerConsole with a Spotify link', () => {
     await user.click(await screen.findByRole('button', { name: 'Start playing' }));
     await waitFor(() => expect(embedEvents).not.toBeNull());
     act(() => embedEvents!.onFailed('preview'));
+    await screen.findByText(/could not be played here, so it was skipped/);
+    const skip = calls.find((c) => c.url.endsWith('/player/unplayable'));
+    expect(skip?.body).toMatchObject({ requestId: 'r1', leaseToken: 'tok', epoch: 4 });
+    expect(calls.some((c) => c.url.endsWith('/player/started'))).toBe(false);
+  });
+
+  it('falls back to the link and manual mode when the skip cannot reach the server', async () => {
+    withLink();
+    const user = userEvent.setup();
+    open();
+    await ready();
+    await user.click(await screen.findByRole('button', { name: 'Start playing' }));
+    await waitFor(() => expect(embedEvents).not.toBeNull());
+    netDown = true;
+    act(() => embedEvents!.onFailed('preview'));
     await screen.findByText(/only a 30-second preview/);
     expect(calls.some((c) => c.url.endsWith('/player/started'))).toBe(false);
-    expect(screen.getByRole('button', { name: 'Mark started' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Mark started' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try the player again' })).toBeInTheDocument();
   });
 });
@@ -213,10 +229,11 @@ describe('PlayerConsole with a YouTube match for a Spotify song', () => {
     act(() => embedEvents!.onFailed('blocked'));
     await waitFor(() => expect(embedSource?.id).toBe('lmnopqrstuv'));
     act(() => embedEvents!.onFailed('blocked'));
-    await screen.findByText(/cannot be played here/);
+    await screen.findByText(/could not be played here, so it was skipped/);
+    expect(calls.some((c) => c.url.endsWith('/player/unplayable'))).toBe(true);
   });
 
-  it('keeps the old preview behaviour when there is no match', async () => {
+  it('skips a preview-only song when there is no match either', async () => {
     ytIds = [];
     const user = userEvent.setup();
     open();
@@ -224,7 +241,7 @@ describe('PlayerConsole with a YouTube match for a Spotify song', () => {
     await user.click(await screen.findByRole('button', { name: 'Start playing' }));
     await waitFor(() => expect(embedEvents).not.toBeNull());
     act(() => embedEvents!.onFailed('preview'));
-    await screen.findByText(/only a 30-second preview/);
+    await screen.findByText(/could not be played here, so it was skipped/);
   });
 });
 
