@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCookies } from '../src/security/tokens';
+import { parseCookies } from '../src/security/tokens.js';
 
 describe('parseCookies', () => {
   it('reads encoded cookies', () => {
