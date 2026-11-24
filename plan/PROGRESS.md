@@ -3,7 +3,7 @@
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 **Current phase:** 19–20 — Android app (Capacitor) + gapless playback on a weak network (2026-11-23)
-**Next session starts with:** finish the Android phone checks that need the owner's taps: Google sign-in round trip in the Custom Tab, a room QR/link opening the app, the back button (runbook → "Check on a phone"). Done on a moto g35 (Android 16) 2026-11-24: install, native bridge, host, auto-advance (≈1.5 s gap), 2-song offline run + catch-up, screen kept on. Earlier carry-overs: Phase 18 phone checks, house playlist links.
+**Next session starts with:** Android phone checks all done (2026-11-24, moto g35 Android 16): room link opens the app (App Link verified), guest join + add, Google sign-in round trip via Custom Tab, Spotify under More, install, native bridge, host, auto-advance (≈1.5 s gap), 2-song offline run + catch-up, screen kept on. Earlier carry-overs: Phase 18 phone checks, house playlist links.
 
 ## Phases
 
