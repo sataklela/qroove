@@ -7,6 +7,7 @@ versioning: [SemVer](https://semver.org/).
 
 ### Fixed
 
+- Add music: a long list of your playlists scrolls on its own, so the genre buttons stay on screen on phones.
 - Server: a cookie that is not URI-encoded (set by another site on the domain or an extension) no longer makes every organiser request fail with a 500.
 - Android app: the header and footer no longer sit under the status and navigation bars (the app draws edge to edge; pages now pad by the screen insets, which also helps notched phones in the browser).
 - Player: "No network" now shows only after a report really failed, not while one is on its way.
