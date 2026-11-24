@@ -96,6 +96,8 @@ export function PlayerConsole({
   /** A radio station is on: the next guest song waits for its handover (ADR 0023). */
   const [radioHold, setRadioHold] = useState(false);
   const [cuedFailed, setCuedFailed] = useState<ReadonlySet<string>>(new Set());
+  /** A song being skipped because it cannot play here (its report is on its way). */
+  const [skipping, setSkipping] = useState<string | null>(null);
 
   const audio = useRef<HTMLAudioElement>(null);
   /** Request the audio element is currently loaded with, and whether the server has been told. */
@@ -592,11 +594,13 @@ export function PlayerConsole({
       // Never started: skip it so the music goes on without a tap (the server reserves the next).
       // Marked failed first, so it is not started again while the skip is on its way.
       setFailed((f) => new Set(f).add(c.id));
+      setSkipping(c.id);
       const title = s?.requests.find((r) => r.id === c.id)?.title ?? 'That song';
       const skipped = await playerApi
         .unplayable(eventId, l, c.id)
         .then(() => true)
         .catch(() => false);
+      setSkipping(null);
       if (skipped) {
         setNotice(`${title} could not be played here, so it was skipped.`);
         stream.refresh();
@@ -869,6 +873,10 @@ export function PlayerConsole({
               Start playing
             </button>
           </>
+        ) : skipping === reserved.id ? (
+          <p className="muted small" role="status">
+            {reserved.title} cannot be played here: skipping it…
+          </p>
         ) : (
           <div className="stack">
             <p className="warning small">
