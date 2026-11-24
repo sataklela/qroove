@@ -616,6 +616,10 @@ input[type='number'] {
   flex-wrap: wrap;
   justify-content: center;
 }
+.landing-android {
+  align-self: center;
+  min-height: 44px;
+}
 .code-input {
   display: flex;
   gap: 0.4rem;

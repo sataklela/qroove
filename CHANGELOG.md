@@ -5,6 +5,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Docs: **Android app** guide (`/docs/guide/android`) with install steps and troubleshooting. The APK is offered on sataklela.com's Qroove case study, to Android phones only; the home screen shows an **Android app** link to the guide on Android browsers (not inside the app).
+
 ### Changed
 
 - **Unplayable songs are skipped automatically** (video blocks embedding, preview-only Spotify, a file that will not open): the player reports it with the new `POST /api/events/:id/player/unplayable`, the song becomes UNAVAILABLE ("Skipped: it could not be played here"), the requester's slot is freed and the next song starts with no tap. Manual mode remains only when the server cannot be reached.
