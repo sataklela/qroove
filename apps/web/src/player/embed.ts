@@ -10,6 +10,8 @@ export interface Source {
    * once it plays; YouTube's own player and everything it shows (adverts included) are untouched.
    */
   expectedMs?: number;
+  /** Start this far in (YouTube only): picking a song up again after a reload. */
+  startMs?: number;
 }
 
 export type EmbedFailure = 'blocked' | 'preview' | 'account';
@@ -126,6 +128,7 @@ export function mountEmbed(
           videoId: source.id,
           playerVars: {
             autoplay: hold ? 0 : 1,
+            ...(source.startMs ? { start: Math.floor(source.startMs / 1000) } : {}),
             playsinline: 1,
             rel: 0,
             origin: window.location.origin,

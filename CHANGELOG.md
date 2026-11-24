@@ -9,6 +9,7 @@ versioning: [SemVer](https://semver.org/).
 
 - Android app: the header and footer no longer sit under the status and navigation bars (the app draws edge to edge; pages now pad by the screen insets, which also helps notched phones in the browser).
 - Player: "No network" now shows only after a report really failed, not while one is on its way.
+- Player: after a reload (or the app being restarted) the playing song carries on by itself from where it should be (YouTube and local files), instead of asking the organiser to press *Mark ended*. A song that must have finished meanwhile is closed rather than replayed. Spotify songs still need the tap.
 
 ## [0.4.0] — 2026-11-23
 
