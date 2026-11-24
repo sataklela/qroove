@@ -721,7 +721,7 @@ export function PlayerConsole({
         </button>
       ) : null}
       {/* Native controls keep the player usable without our UI (lock screen, headphones). */}
-      {offline || unconfirmed > 0 ? (
+      {offline ? (
         <p className="warning small offline-line" role="status">
           <WifiOff aria-hidden size={16} />{' '}
           {unconfirmed >= OFFLINE_SONGS && !audioId

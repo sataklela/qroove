@@ -3,6 +3,13 @@
 All notable changes are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning: [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Android app: the header and footer no longer sit under the status and navigation bars (the app draws edge to edge; pages now pad by the screen insets, which also helps notched phones in the browser).
+- Player: "No network" now shows only after a report really failed, not while one is on its way.
+
 ## [0.4.0] — 2026-11-23
 
 ### Added
