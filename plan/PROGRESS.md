@@ -3,7 +3,7 @@
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 **Current phase:** 19–20 — Android app (Capacitor) + gapless playback on a weak network (2026-11-23)
-**Next session starts with:** Android phone checks all done (2026-11-24, moto g35 Android 16): room link opens the app (App Link verified), guest join + add, Google sign-in round trip via Custom Tab, Spotify under More, install, native bridge, host, auto-advance (≈1.5 s gap), 2-song offline run + catch-up, screen kept on. Also 2026-11-24: real touch drag-to-sort and add-from-playlist on Android; house playlists are live (starter songs). Left: the laptop player smoke test above.
+**Next session starts with:** Android phone checks all done (2026-11-24, moto g35 Android 16): room link opens the app (App Link verified), guest join + add, Google sign-in round trip via Custom Tab, Spotify under More, install, native bridge, host, auto-advance (≈1.5 s gap), 2-song offline run + catch-up, screen kept on. Also 2026-11-24: real touch drag-to-sort and add-from-playlist on Android; house playlists are live (starter songs). Laptop player (Spotify Premium) + phone guest verified live 2026-11-24: auto-advance ~1–2 s, guest song played in turn, phone updates in 3–6 s (after fixing the Spotify hand-off hang, #22). Auto-skip of unplayable songs (#20, owner decision) verified live. Next: cut a 0.4.1 release (bump `apps/web/package.json`, tag `v0.4.1`) only if an APK change is needed — web fixes reach the app on reload.
 
 ## Phases
 
@@ -31,7 +31,7 @@ Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 ## Blocked / needs user
 
-- Laptop-as-player smoke test with real YouTube playback (a browser on the VPS cannot do it: YouTube answers datacenter IPs with "Sign in to confirm that you're not a bot"). Guest-on-phone side verified 2026-11-24.
+- None for Phases 19–20. (A browser on the VPS cannot test YouTube playback: YouTube answers datacenter IPs with "Sign in to confirm that you're not a bot"; use the owner's laptop.)
 
 ## Notes per phase
 
