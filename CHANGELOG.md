@@ -11,6 +11,7 @@ versioning: [SemVer](https://semver.org/).
 
 ### Fixed
 
+- Player (Spotify signed in): the next song could hang silently after one ended ("Pause music" shown, nothing playing), because Spotify still reported the finished song for a moment and the new one was taken as already over. Those stale states are now ignored, and a Spotify song that has not started 20 s after it was asked for falls back to its YouTube match (or is skipped), so the music never waits silently.
 - Add music: a long list of your playlists scrolls on its own, so the genre buttons stay on screen on phones.
 - Server: a cookie that is not URI-encoded (set by another site on the domain or an extension) no longer makes every organiser request fail with a 500.
 - Android app: the header and footer no longer sit under the status and navigation bars (the app draws edge to edge; pages now pad by the screen insets, which also helps notched phones in the browser).

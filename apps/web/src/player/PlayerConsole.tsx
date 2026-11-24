@@ -564,7 +564,8 @@ export function PlayerConsole({
     }
     // Spotify refused or offered only a preview: the same song may play in full from YouTube.
     const asked = c.src;
-    const spotifyRefused = (why === 'account' || why === 'preview') && asked?.kind !== 'youtube';
+    const spotifyRefused =
+      (why === 'account' || why === 'preview' || why === 'stalled') && asked?.kind !== 'youtube';
     const maybeYouTube = ytIds[c.id] === undefined || ytIds[c.id]!.length > 0;
     if (
       spotifyRefused &&
@@ -573,7 +574,11 @@ export function PlayerConsole({
       sourceOf(s?.requests.find((r) => r.id === c.id)?.sourceUrl)?.kind === 'spotify'
     ) {
       setSpotifyFailed((f) => new Set(f).add(c.id));
-      setNotice('Spotify offered only a preview, so this song is played from YouTube instead.');
+      setNotice(
+        why === 'stalled'
+          ? "Spotify's player did not start this song, so it is played from YouTube instead."
+          : 'Spotify offered only a preview, so this song is played from YouTube instead.',
+      );
       stream.refresh();
       return;
     }

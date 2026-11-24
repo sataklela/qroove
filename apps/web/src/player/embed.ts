@@ -14,7 +14,8 @@ export interface Source {
   startMs?: number;
 }
 
-export type EmbedFailure = 'blocked' | 'preview' | 'account';
+/** `stalled`: asked to play but never started (Spotify's player went quiet). */
+export type EmbedFailure = 'blocked' | 'preview' | 'account' | 'stalled';
 
 export interface EmbedEvents {
   /** Audio has really started. The length is only passed when the player can be trusted for it. */

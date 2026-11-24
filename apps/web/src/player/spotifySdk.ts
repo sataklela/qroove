@@ -41,6 +41,8 @@ export interface SpotifyConnection {
 
 const READY_TIMEOUT_MS = 15_000;
 const POLL_MS = 1000;
+/** A song that has not started this long after it was asked for is given up (no silent hang). */
+const START_TIMEOUT_MS = 20_000;
 
 export async function fetchSpotifyToken(): Promise<string | null> {
   const res = await fetch('/api/spotify/token');
@@ -114,11 +116,27 @@ export async function connectSpotify(name: string): Promise<SpotifyConnection> {
     disconnect: () => player.disconnect(),
     play(trackId, ev) {
       let gone = false;
+      /** Spotify accepted the play request: states before that can still be the previous song. */
+      let asked = false;
       let first: string | null = null;
-      const track = spotifyTracker(ev);
+      const track = spotifyTracker({
+        ...ev,
+        onPlaying: (ms) => {
+          clearTimeout(stall);
+          ev.onPlaying(ms);
+        },
+      });
+      /** The song Spotify showed before this one was asked for (the one that just ended). */
+      let stale: string | null = null;
       const follow = (s: SdkState) => {
         if (gone) return;
         const current = s.track_window.current_track.id;
+        if (!asked) {
+          stale = current;
+          return;
+        }
+        // Spotify can still show the previous song for a moment after taking the request.
+        if (first === null && current === stale && current !== trackId) return;
         first ??= current;
         // Compared with the first id seen, because Spotify may swap in a regional copy of the song.
         if (current !== first) {
@@ -140,9 +158,13 @@ export async function connectSpotify(name: string): Promise<SpotifyConnection> {
           if (s) follow(s);
         });
       }, POLL_MS);
-      const failed = (why: 'blocked' | 'account') => {
-        if (!gone) ev.onFailed(why);
+      const failed = (why: 'blocked' | 'account' | 'stalled') => {
+        if (gone) return;
+        gone = true;
+        clearTimeout(stall);
+        ev.onFailed(why);
       };
+      const stall = setTimeout(() => failed('stalled'), START_TIMEOUT_MS);
       player.addListener('playback_error', () => failed('blocked'));
       void (async () => {
         let status = await start(trackId);
@@ -153,9 +175,11 @@ export async function connectSpotify(name: string): Promise<SpotifyConnection> {
         }
         if (status === 401 || status === 403) failed('account');
         else if (status >= 400) failed('blocked');
+        else asked = true;
       })().catch(() => failed('blocked'));
       return () => {
         gone = true;
+        clearTimeout(stall);
         clearInterval(poll);
         onState = null;
         void player.pause().catch(() => undefined);
