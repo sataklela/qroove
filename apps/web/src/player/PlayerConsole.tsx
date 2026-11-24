@@ -139,44 +139,58 @@ export function PlayerConsole({
     audioId !== serverNowPlaying.track.requestId
       ? null
       : serverNowPlaying;
+  /**
+   * After a reload (or the app being restarted) the server still has a song playing that this
+   * page holds no player for: pick it up again where it should be, rather than asking for a tap.
+   */
+  const resumeId =
+    leaseState === 'held' &&
+    !audioId &&
+    serverNowPlaying &&
+    !done.has(serverNowPlaying.track.requestId)
+      ? serverNowPlaying.track.requestId
+      : null;
+  const resume = (resumeId && s?.requests.find((r) => r.id === resumeId)) || null;
+  /** The song whose player is being prepared: the one to resume, else the next one. */
+  const target = resume ?? reserved;
 
   const match: Match | null = useMemo(() => {
-    if (!reserved) return null;
-    const p = picked[reserved.id];
+    if (!target) return null;
+    const p = picked[target.id];
     if (p) return { track: p, kind: 'exact' };
-    if (failed.has(reserved.id)) return null;
-    return findMatch(library, reserved);
-  }, [reserved, library, picked, failed]);
+    if (failed.has(target.id)) return null;
+    return findMatch(library, target);
+  }, [target, library, picked, failed]);
   // A local file wins (no adverts, no sign-in); otherwise the song's own Spotify or YouTube player.
-  const reservedUrl = reserved?.sourceUrl ?? null;
   const reservedId = reserved?.id ?? null;
-  const spotifyBase = reservedId && !failed.has(reservedId) ? sourceOf(reservedUrl) : null;
+  const targetId = target?.id ?? null;
+  const spotifyBase = targetId && !failed.has(targetId) ? sourceOf(target?.sourceUrl) : null;
   // Spotify's own player when it can play in full; otherwise the matching YouTube video, if any.
   const wantYouTube =
     spotifyBase?.kind === 'spotify' &&
-    reservedId !== null &&
-    (spotifyFailed.has(reservedId) || spotifyStatus === 'out' || spotifyStatus === 'problem');
-  const reservedDuration = reserved?.durationMs ?? null;
+    targetId !== null &&
+    (spotifyFailed.has(targetId) || spotifyStatus === 'out' || spotifyStatus === 'problem');
+  const targetDuration = target?.durationMs ?? null;
   useEffect(() => {
-    if (!wantYouTube || !reservedId || ytIds[reservedId]) return;
+    if (!wantYouTube || !targetId || ytIds[targetId]) return;
     let live = true;
     playerApi
-      .youtube(eventId, reservedId)
-      .then((r) => live && setYtIds((m) => ({ ...m, [reservedId]: r.videoIds ?? [] })))
-      .catch(() => live && setYtIds((m) => ({ ...m, [reservedId]: [] })));
+      .youtube(eventId, targetId)
+      .then((r) => live && setYtIds((m) => ({ ...m, [targetId]: r.videoIds ?? [] })))
+      .catch(() => live && setYtIds((m) => ({ ...m, [targetId]: [] })));
     return () => {
       live = false;
     };
-  }, [wantYouTube, reservedId, eventId, ytIds]);
+  }, [wantYouTube, targetId, eventId, ytIds]);
   const source = useMemo((): Source | null => {
-    if (!spotifyBase || !wantYouTube || !reservedId) return spotifyBase;
-    const ids = ytIds[reservedId];
+    if (!spotifyBase || !wantYouTube || !targetId) return spotifyBase;
+    const ids = ytIds[targetId];
     // Still looking: wait rather than start Spotify's 30-second preview.
     if (!ids) return null;
-    const id = ids[ytIndex[reservedId] ?? 0];
+    const id = ids[ytIndex[targetId] ?? 0];
     if (!id) return spotifyBase;
-    return reservedDuration ? { kind: 'youtube', id, expectedMs: reservedDuration } : spotifyBase;
-  }, [spotifyBase, wantYouTube, reservedId, ytIds, ytIndex, reservedDuration]);
+    return targetDuration ? { kind: 'youtube', id, expectedMs: targetDuration } : spotifyBase;
+  }, [spotifyBase, wantYouTube, targetId, ytIds, ytIndex, targetDuration]);
 
   // ---- lease -------------------------------------------------------------------------------
   const stopAudio = useCallback(() => {
@@ -432,13 +446,14 @@ export function PlayerConsole({
   }, [queueHead, spotifyStatus, eventId]);
 
   const startFile = useCallback(
-    async (id: string, track: LocalTrack, title: string, artist: string | null) => {
+    async (id: string, track: LocalTrack, title: string, artist: string | null, fromSec = 0) => {
       const a = audio.current;
       if (!a || current.current) return;
       const url = URL.createObjectURL(track.file);
       current.current = { id, reported: false, url, offline: nextOffline.current };
       setAudioId(id);
       a.src = url;
+      if (fromSec > 0) a.currentTime = fromSec;
       try {
         await a.play();
         setUnlocked(true);
@@ -461,6 +476,30 @@ export function PlayerConsole({
     setEmbed({ id, source: src });
     setUnlocked(true);
   }, []);
+
+  // Resume the song the server says is playing (see `resumeId`), from where it should be now.
+  useEffect(() => {
+    if (!resume || !serverNowPlaying || current.current) return;
+    const id = resume.id;
+    const elapsed = Math.max(0, Date.now() - serverNowPlaying.startedAt);
+    const length = resume.durationMs ?? source?.expectedMs ?? null;
+    const markDone = () => setDone((d) => new Set(d).add(id));
+    if (length !== null && elapsed > length - 3000) {
+      markDone();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- closing the song is the effect
+      report({ kind: 'finished', requestId: id, at: Date.now(), outcome: 'PLAYED' });
+      return;
+    }
+    if (match) void startFile(id, match.track, resume.title, resume.artist, elapsed / 1000);
+    else if (source?.kind === 'youtube') startEmbed(id, { ...source, startMs: elapsed });
+    else return; // Spotify, or no player: the organiser marks it ended by hand, as before.
+    // The server already knows it started (TS keeps the narrowing from the guard above).
+    const started = current.current as { reported: boolean } | null;
+    if (started) started.reported = true;
+    markDone();
+    // Only when the song to resume or its player changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resume?.id, match, source]);
 
   // Auto-advance once audio is unlocked and the sound check is done.
   useEffect(() => {
@@ -529,7 +568,7 @@ export function PlayerConsole({
       spotifyRefused &&
       maybeYouTube &&
       !spotifyFailed.has(c.id) &&
-      sourceOf(reservedUrl)?.kind === 'spotify'
+      sourceOf(s?.requests.find((r) => r.id === c.id)?.sourceUrl)?.kind === 'spotify'
     ) {
       setSpotifyFailed((f) => new Set(f).add(c.id));
       setNotice('Spotify offered only a preview, so this song is played from YouTube instead.');

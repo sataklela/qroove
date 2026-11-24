@@ -6,7 +6,7 @@ import { PlayerConsole } from './PlayerConsole';
 
 type Events = import('./embed').EmbedEvents;
 let embedEvents: Events | null = null;
-let embedSource: { kind: string; id: string; expectedMs?: number } | null = null;
+let embedSource: { kind: string; id: string; expectedMs?: number; startMs?: number } | null = null;
 /** Every player mounted, by video/track id: its events and whether it was only cued. */
 const mounts = new Map<string, { ev: Events; cued: boolean }>();
 vi.mock('./embed', async (real) => ({
@@ -540,5 +540,38 @@ describe('PlayerConsole between songs on a weak network (ADR 0029)', () => {
     const startC = calls.find((c) => c.url.endsWith('/started') && c.body?.requestId === 'c');
     expect(startC?.body).toMatchObject({ offline: true });
     expect(typeof startC?.body?.at).toBe('number');
+  });
+
+  it('after a reload, picks the playing song up where it should be, with no tap', async () => {
+    const st = playing('a', 'b', ['c', 'd']);
+    (st.view.nowPlaying as { startedAt: number }).startedAt = Date.now() - 60_000;
+    adminState = st;
+    open();
+    await waitFor(() => expect(embedSource?.id).toBe(vid(1)));
+    expect(mounts.get(vid(1))?.cued).toBe(false);
+    expect(embedSource?.startMs).toBeGreaterThanOrEqual(59_000);
+    expect(screen.queryByRole('button', { name: 'Mark ended' })).toBeNull();
+    // The server already knows it started; its end is reported as usual.
+    act(() => mounts.get(vid(1))!.ev.onPlaying(200_000));
+    act(() => mounts.get(vid(1))!.ev.onEnded());
+    await waitFor(() =>
+      expect(calls.some((c) => c.url.endsWith('/finished') && c.body?.requestId === 'a')).toBe(
+        true,
+      ),
+    );
+    expect(calls.some((c) => c.url.endsWith('/started') && c.body?.requestId === 'a')).toBe(false);
+  });
+
+  it('after a long break, closes a song that must have ended instead of replaying it', async () => {
+    const st = playing('a', 'b', ['c', 'd']);
+    (st.view.nowPlaying as { startedAt: number }).startedAt = Date.now() - 199_000;
+    adminState = st;
+    open();
+    await waitFor(() =>
+      expect(calls.some((c) => c.url.endsWith('/finished') && c.body?.requestId === 'a')).toBe(
+        true,
+      ),
+    );
+    expect(mounts.get(vid(1))).toBeUndefined();
   });
 });

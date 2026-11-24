@@ -21,6 +21,8 @@ export function EmbedPlayer({
   const arm = useRef<(() => void) | null>(null);
   const startArmed = useRef(armed);
   const { kind, id, expectedMs } = source;
+  /** Read once, when the player is made: a resumed song's starting point. */
+  const startMs = useRef(source.startMs);
   const sdk = spotify !== null && kind === 'spotify';
   useEffect(() => {
     if (!host.current || sdk) return;
@@ -36,7 +38,12 @@ export function EmbedPlayer({
         });
     return mountEmbed(
       host.current,
-      expectedMs === undefined ? { kind, id } : { kind, id, expectedMs },
+      {
+        kind,
+        id,
+        ...(expectedMs === undefined ? {} : { expectedMs }),
+        ...(startMs.current ? { startMs: startMs.current } : {}),
+      },
       ev,
       hold,
     );
