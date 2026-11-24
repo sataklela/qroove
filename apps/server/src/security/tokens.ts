@@ -10,7 +10,14 @@ export function parseCookies(header: string | undefined): Record<string, string>
   const out: Record<string, string> = {};
   for (const part of (header ?? '').split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    if (i <= 0) continue;
+    // Other sites on the domain (or extensions) may set cookies that are not URI-encoded: one bad
+    // cookie must not turn every request into a 500. Ours are always encoded, so skip the rest.
+    try {
+      out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    } catch {
+      /* not ours */
+    }
   }
   return out;
 }
