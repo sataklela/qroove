@@ -62,3 +62,11 @@ Users switching must uninstall first (the Android guide already covers "App not 
 6. Bump `apps/web/package.json` version for every upload (drives `versionCode`; Play rejects repeats).
 
 Publishing to any track is an "ask first" action (CLAUDE.md): the owner confirms each release.
+
+## Play console warnings
+
+- *No deobfuscation file*: fixed from 0.4.1 (R8 map is embedded in the AAB).
+- *Native code without debug symbols*: expected and harmless. The `.so` files are Google's prebuilt,
+  stripped libraries (barcode scanner, CameraX); there are no symbols to upload.
+- Shrinking can break code found by reflection: after each build, smoke-test on a phone (open, Scan QR,
+  Google sign-in round trip, keep-awake, back button) before uploading.
