@@ -63,6 +63,7 @@ export default defineConfig({
           { text: 'Transfer ownership', link: '/runbook/transfer-ownership' },
           { text: 'Fewest-taps checks', link: '/runbook/fewest-taps-checks' },
           { text: 'Android app', link: '/runbook/android' },
+          { text: 'Google Play', link: '/runbook/google-play' },
         ],
       },
       {

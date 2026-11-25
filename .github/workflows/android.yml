@@ -42,14 +42,16 @@ jobs:
           QROOVE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           QROOVE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           QROOVE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease
+        run: ./gradlew --no-daemon assembleRelease bundleRelease
       - name: Name the APK
         working-directory: apps/mobile/android
         run: |
           v=$(node -p "require('../../web/package.json').version")
           f=$(ls app/build/outputs/apk/release/*.apk)
           mkdir -p out && cp "$f" "out/qroove-$v$( [[ $f == *unsigned* ]] && echo -unsigned ).apk"
-          (cd out && sha256sum *.apk > SHA256SUMS)
+          # The Play Store takes the app bundle (.aab), signed with the upload key.
+          cp app/build/outputs/bundle/release/*.aab "out/qroove-$v.aab"
+          (cd out && sha256sum *.apk *.aab > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
           name: qroove-android
