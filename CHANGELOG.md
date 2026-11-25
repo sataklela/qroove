@@ -5,6 +5,15 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Android TV, 0.4.1)
+
+- Android TV / Google TV / projectors: shows on the TV home screen (leanback launcher, 320×180 banner;
+  camera and touchscreen optional), switches the site to a 10-foot layout (overscan-safe margins,
+  larger type, always-visible focus ring) and remote-control navigation (spatial navigation, main
+  action focused, Back closes panels first). Organiser screen on a TV shows a large join code and QR.
+  `?tv=1` gives the same layout in any browser.
+- CI: Android TV emulator smoke test (`android-tv` job); browser TV test (`tests/e2e/tv.spec.ts`).
+
 ### Added (terms)
 
 - Terms of service at `/terms` (menu and docs); privacy text no longer names Railway as the host.

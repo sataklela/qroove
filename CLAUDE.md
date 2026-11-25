@@ -73,4 +73,5 @@ Teleport needs a clean working tree in `~/qroove`.
 - Release key: `/srv/qroove/secrets/qroove-release.jks` (+ owner's offline backup); its SHA-256 in Coolify
   `ANDROID_CERT_SHA256`; four `ANDROID_*` GitHub secrets for `.github/workflows/android.yml`. **Never regenerate an existing key.**
 - Bump `apps/web/package.json` version before every APK handed out (it drives `versionCode`).
-- Real-device QA: wireless adb from the VPS (see runbook); the VPS has no KVM, so no emulator.
+- Real-device QA: wireless adb from the VPS (see runbook); the VPS has no KVM, so emulators (Android TV) run in CI (`android-tv` job).
+- Android TV: TV mode via `isTv()`/`setUpTv()` in `native.ts` (UA marker `LeanbackShell` from MainActivity, or `?tv=1`).

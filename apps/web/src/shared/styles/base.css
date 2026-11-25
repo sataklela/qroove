@@ -2425,3 +2425,83 @@ body.console .layout main {
 :root[data-app='android'] .web-only {
   display: none !important;
 }
+
+/* ---- Android TV / projector (data-tv, see native.ts isTv) ------------------------------------
+   A 1080p TV's WebView is usually 960×540 CSS px (1px = 1dp). Android TV guidelines: keep content
+   inside the overscan-safe area (48dp sides, 27dp top/bottom), larger text read from across a room,
+   big targets, and a focus state that can always be seen (there is no pointer, only the D-pad). */
+html[data-tv] {
+  font-size: 18px;
+  color-scheme: dark;
+}
+html[data-tv] body {
+  font-size: 1rem;
+  padding: 27px 48px;
+  box-sizing: border-box;
+}
+html[data-tv] body.console .layout {
+  height: calc(100dvh - 54px);
+}
+html[data-tv] a,
+html[data-tv] button,
+html[data-tv] input,
+html[data-tv] select,
+html[data-tv] summary {
+  min-height: 48px;
+  min-width: 48px;
+}
+/* Focus is set by the remote and by script, so :focus (not only :focus-visible) must show. */
+html[data-tv] :is(a, button, input, select, textarea, summary, [tabindex]):focus {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 30%, transparent);
+  transform: scale(1.04);
+  transition: transform 0.12s ease-out;
+  position: relative;
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-tv] :focus {
+    transform: none;
+  }
+}
+/* Big-screen organiser view: the player on the left, the way to join always on the right. */
+html[data-tv] div.console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(200px, 28vw, 320px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'head join'
+    'pager join'
+    'dots join';
+  column-gap: 1.5rem;
+}
+html[data-tv] .console > .console-head {
+  grid-area: head;
+}
+html[data-tv] .console > .pager {
+  grid-area: pager;
+}
+html[data-tv] .console > .pager-dots {
+  grid-area: dots;
+}
+html[data-tv] .tv-join {
+  grid-area: join;
+  align-self: center;
+  text-align: center;
+}
+html[data-tv] .tv-join .qr {
+  width: 100%;
+}
+html[data-tv] .tv-join .room-code {
+  font-size: 2rem;
+  margin: 0 0 0.5rem;
+}
+/* Hover-only affordances never show on a TV: row actions are always visible there. */
+html[data-tv] .song-actions {
+  opacity: 1;
+  visibility: visible;
+}
+html[data-tv] .layout {
+  min-height: calc(100dvh - 54px);
+}

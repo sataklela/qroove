@@ -78,6 +78,8 @@ Web app (PWA) works in any browser
       │                        web isTv() (also ?tv=1 for browsers/laptops on projectors)
       ├─ Remote control ...... WICG spatial-navigation polyfill (TV only), page's main action
       │                        gets focus (data-tv-focus), Back closes sheets first
+      ├─ Test ................ Android 11 TV emulator in CI (runner has KVM) drives a debug build
+      │                        pointed at the branch server; browser TV test at 960×540
       └─ 10-foot layout ...... overscan-safe padding (48/27 dp), bigger type and targets,
                                always-visible focus ring, host screen with a large join QR
 ```

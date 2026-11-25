@@ -62,3 +62,24 @@ one. Your events and sign-ins stay.
 Still stuck? Open the site in the phone's browser instead (it does everything the app does), and
 [open an issue](https://github.com/sataklela/qroove/issues) with your phone model and Android
 version.
+
+## TV and projectors
+
+From version 0.4.1 the same app runs on **Android TV, Google TV and Android projectors**. The TV is
+the host: it plays the music on the big screen and speakers and shows a large room code and QR code,
+so guests join from their phones across the room.
+
+- **Install:** from Google Play on the TV (once the TV listing is approved), or copy the APK to a USB
+  stick and open it with the TV's file manager (allow installs from that app when asked).
+- **Remote control:** arrows move between buttons (the highlighted one has a thick orange outline),
+  **OK** presses it, **Back** closes a panel, then goes back a page. Hosting starts with OK on
+  **Host an event**.
+- **On a laptop connected to a projector:** open `qroove.sataklela.com/?tv=1` for the same big-screen
+  layout (`?tv=0` turns it off).
+
+| Problem | What to do |
+| --- | --- |
+| Qroove is not on the TV home screen | Look under **Apps → See all apps**. Very old or non-Google Android boxes may only show it in their file manager. |
+| Google sign-in does not open | Many TVs have no web browser. Sign-in is optional: YouTube songs play without it. Guests can add songs from their own playlists on their phones. |
+| Projector has no Google Play | Install the APK from a USB stick. Some cut-down Android systems play video poorly; a Google TV device or a laptop works better. |
+| Nothing moves when pressing arrows | Press OK once to wake the app, then try again. If a text box is selected, the arrows move inside it first. |

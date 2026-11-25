@@ -70,3 +70,12 @@ Publishing to any track is an "ask first" action (CLAUDE.md): the owner confirms
   stripped libraries (barcode scanner, CameraX); there are no symbols to upload.
 - Shrinking can break code found by reflection: after each build, smoke-test on a phone (open, Scan QR,
   Google sign-in round trip, keep-awake, back button) before uploading.
+
+## Android TV listing
+
+The same app and bundle serve TVs (from 0.4.1). In Play Console: **Release → Advanced settings →
+Form factors → Android TV → Add**, then opt in. Provide the TV banner
+(`apps/mobile/play/tv-banner-320x180.png`) and at least one TV screenshot (1920×1080; use the
+`android-tv-screens` CI artifact or a capture from a real TV). Google reviews TV apps separately:
+everything must work with the D-pad, and the app must not require touch or a camera (both are
+declared optional).

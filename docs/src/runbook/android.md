@@ -73,3 +73,15 @@ emulation in the WebView, not by switching Wi-Fi off (that drops adb too).
 - Host an event; songs advance with no tap; the screen stays on.
 - Turn the network off mid-song: the next song starts on time; one more follows; then
   "No network: waiting to reconnect". Network back: the organiser and guest views catch up.
+
+## Android TV QA
+
+- **Emulator:** the `android-tv` job in `.github/workflows/android.yml` boots an Android 11 TV emulator
+  on GitHub's runners (they have KVM; the VPS does not), installs a debug build pointed at the branch's
+  own server, and drives it with D-pad key events (`tests/android-tv/smoke.mjs`). Screenshots are in the
+  `android-tv-screens` artifact.
+- **Browser:** `tests/e2e/tv.spec.ts` runs the web TV mode at 960×540 with arrow keys only.
+- **Real TV / projector:** if Developer options has **Wireless debugging**, pair as with a phone. If it
+  only has **USB debugging** (common on Android 11 TVs and projectors), connect a laptop by USB once,
+  run `adb tcpip 5555`, unplug, then `adb connect <tailscale-ip>:5555` from the VPS. It lasts until the
+  device restarts.

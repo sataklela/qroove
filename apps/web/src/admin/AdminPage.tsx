@@ -4,6 +4,7 @@ import { ApiError } from '../shared/api';
 import { formatCode } from '../shared/code';
 import { useMenuRules } from '../shared/menu';
 import { useLockedPage } from '../shared/useLockedPage';
+import { isTv } from '../shared/native';
 import { PlayerConsole } from '../player/PlayerConsole';
 import { commands } from './adminApi';
 import {
@@ -105,6 +106,13 @@ export default function AdminPage() {
         <h1 className="sr-only">{v.name}</h1>
         <ErrorLine error={error} />
       </header>
+      {isTv() && !ended ? (
+        // Big screen: the way in stays on show, so guests can join from across the room.
+        <aside className="tv-join" aria-label="Join this event">
+          <SharePanel joinUrl={state.joinUrl} name={v.name} slug={v.slug} />
+          <p className="muted">Scan to add songs</p>
+        </aside>
+      ) : null}
       <div
         ref={pager}
         className="pager"

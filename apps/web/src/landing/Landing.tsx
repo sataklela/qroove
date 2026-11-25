@@ -5,7 +5,7 @@ import { adminApi, organiserPath } from '../admin/adminApi';
 import { api, ApiError } from '../shared/api';
 import { CodeInput } from '../shared/CodeInput';
 import { InfoTip } from '../shared/InfoTip';
-import { isAndroidBrowser, isApp, scanRoomCode } from '../shared/native';
+import { isAndroidBrowser, isApp, isTv, scanRoomCode } from '../shared/native';
 
 /** Everything fits one phone screen: the code boxes come first, like a quiz app. */
 export function Landing() {
@@ -66,7 +66,7 @@ export function Landing() {
       <div className="landing-msg" role="status" aria-live="polite">
         {problem ? (
           <p className="error">{problem}</p>
-        ) : app ? (
+        ) : app && !isTv() ? (
           <button
             type="button"
             className="btn"
@@ -90,6 +90,7 @@ export function Landing() {
         <button
           type="button"
           className="btn primary landing-host"
+          data-tv-focus
           disabled={busy}
           onClick={() => void create()}
         >
@@ -103,7 +104,7 @@ export function Landing() {
           on.
         </InfoTip>
       </div>
-      {isAndroidBrowser() ? (
+      {isAndroidBrowser() && !isTv() ? (
         // Hosting from an Android phone: the app keeps the screen on and rides out a weak network.
         <a className="btn ghost small landing-android" href="/docs/guide/android">
           <Smartphone aria-hidden size={18} /> Android app
