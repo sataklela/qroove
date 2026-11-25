@@ -52,6 +52,10 @@ export default defineConfig({
           { text: 'Security', link: '/architecture/security' },
         ],
       },
+      {
+        text: 'Knowledge',
+        items: [{ text: 'PWA → Play-ready Android app', link: '/knowledge/pwa-to-play-store' }],
+      },
       { text: 'API', items: [{ text: 'Reference', link: '/api/reference' }] },
       {
         text: 'Runbook',
