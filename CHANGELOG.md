@@ -5,6 +5,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (Google Play prep)
+
+- Android CI also builds a signed app bundle (`.aab`) for Google Play; store graphics in `apps/mobile/play/`; runbook `runbook/google-play`.
+
 ### Added
 
 - Docs: **Android app** guide (`/docs/guide/android`) with install steps and troubleshooting. The APK is offered on sataklela.com's Qroove case study, to Android phones only; the home screen shows an **Android app** link to the guide on Android browsers (not inside the app).
