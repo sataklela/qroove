@@ -41,20 +41,31 @@ check(!!pid, 'launches');
 await sleep(8000);
 shot('launched');
 
-// 3. Attach to the WebView.
+// 3. Attach to the WebView (debug builds expose webview_devtools_remote_<pid>).
+console.log(
+  'WebView:',
+  sh(`adb shell dumpsys package com.google.android.webview | grep versionName | head -1 || true`),
+);
 let page;
+let last = '';
 for (let i = 0; i < 20 && !page; i++) {
   try {
-    adb(`forward tcp:9222 localabstract:webview_devtools_remote_${pid}`);
+    const sockets = sh(
+      `adb shell cat /proc/net/unix | grep -o 'webview_devtools_remote_[0-9]*' | sort -u || true`,
+    ).split('\n');
+    const name = sockets.find((s) => s.endsWith(`_${pid}`)) ?? sockets[0];
+    if (!name) throw new Error('no devtools socket yet');
+    adb(`forward tcp:9222 localabstract:${name}`);
     const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
-    page = browser
-      .contexts()[0]
-      ?.pages()
-      .find((p) => p.url().startsWith('http'));
-  } catch {
-    await sleep(1500);
+    const pages = browser.contexts().flatMap((c) => c.pages());
+    last = `${name}: ${pages.map((p) => p.url()).join(', ') || 'no pages'}`;
+    page = pages.find((p) => p.url().startsWith('http'));
+  } catch (e) {
+    last = String(e).slice(0, 200);
   }
+  if (!page) await sleep(1500);
 }
+if (!page) console.log('last attach attempt:', last);
 check(!!page, 'WebView reachable over CDP');
 await page.waitForFunction(() => document.documentElement.dataset.tv === '1', null, {
   timeout: 30_000,
