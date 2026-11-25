@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useParams } from 'react-router';
 import { EventPage } from './attendee/EventPage';
 import { Landing } from './landing/Landing';
 import { Privacy } from './landing/Privacy';
+import { Terms } from './landing/Terms';
 import { Layout } from './shared/Layout';
 import { MenuProvider } from './shared/menu';
 
@@ -26,6 +27,7 @@ export function AppRoutes() {
             <Route path="/" element={<Landing />} />
             <Route path="/e/:slug" element={<EventPage />} />
             <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route path="/new" element={<CreateEvent />} />
             <Route path="/import" element={<Navigate to="/new#playlist" replace />} />
             <Route path="/a/:eventId" element={<AdminEntry mode="link" />} />

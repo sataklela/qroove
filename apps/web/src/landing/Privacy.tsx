@@ -40,8 +40,8 @@ export function Privacy() {
       <h3>Who we share it with</h3>
       <p>
         We do not sell, share, transfer or disclose Google user data to anyone. Requests go only
-        between your browser, our server and Google. Our hosting provider (Railway) runs the server
-        that handles these requests but does not receive the data for its own use. A song you
+        between your browser, our server and Google. Sataklela runs the server that handles these
+        requests; the company we rent it from does not receive the data for its own use. A song you
         choose to add (its title, artist and YouTube link) becomes part of that event’s queue and is
         visible to the organiser and guests of that event, as any added song is.
       </p>
