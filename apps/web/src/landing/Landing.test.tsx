@@ -134,7 +134,7 @@ describe('Landing', () => {
       within(panel)
         .getAllByRole('link')
         .map((a) => a.textContent),
-    ).toEqual(['Docs', 'Privacy', 'Source']);
+    ).toEqual(['Docs', 'Privacy', 'Terms', 'Source']);
     expect(within(panel).queryByRole('button', { name: /Session rules/ })).toBeNull(); // no event
     await user.click(screen.getByRole('button', { name: 'Switch to light mode' }));
     expect(document.documentElement.dataset.theme).toBe('light');

@@ -24,7 +24,7 @@ read-only.
 ## Third parties
 
 If an organiser logs in with Spotify, a login token is kept in an encrypted cookie on that device for up to 30 days, and is not stored by Qroove. Searching sends your search words to Spotify. Looking up a song link sends only the song id to Spotify, Apple (iTunes Lookup) or YouTube. Hosting is on
-Railway and the database on Google Cloud Firestore (EU multi-region).
+a server Sataklela rents and runs itself, and the database on Google Cloud Firestore (EU multi-region).
 
 ## Google user data
 

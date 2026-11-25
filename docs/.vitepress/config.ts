@@ -113,6 +113,7 @@ export default defineConfig({
         text: 'More',
         items: [
           { text: 'Privacy', link: '/privacy' },
+          { text: 'Terms', link: '/terms' },
           { text: 'Threat model', link: '/threat-model' },
           { text: 'Changelog', link: '/changelog' },
         ],

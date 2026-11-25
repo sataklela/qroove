@@ -144,6 +144,9 @@ export function AppMenu() {
           <Link to="/privacy" className="btn ghost" onClick={() => setOpen(false)}>
             Privacy
           </Link>
+          <Link to="/terms" className="btn ghost" onClick={() => setOpen(false)}>
+            Terms
+          </Link>
           <a href={BRAND.repoUrl} className="btn ghost" rel="noopener">
             Source
           </a>

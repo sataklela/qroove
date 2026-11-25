@@ -5,6 +5,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added (terms)
+
+- Terms of service at `/terms` (menu and docs); privacy text no longer names Railway as the host.
+
 ### Changed (Android 0.4.1)
 
 - Release builds are shrunk with R8 (AAB 20.5 → 15.5 MB, APK 33 → 25 MB); the deobfuscation map ships inside the AAB, so Play's "no deobfuscation file" warning goes away. The "no native debug symbols" warning stays: the only native code is Google's prebuilt, already-stripped libraries (ML Kit barcode, CameraX, AndroidX), which ship no symbols.
