@@ -2,6 +2,11 @@
 
 Fair collaborative music queue PWA (plus Android app) for dance socials. A CSR initiative of Sataklela OÜ (AGPL-3.0).
 
+**Cardinal rule — knowledge first.** Before researching or designing anything from scratch, search the org
+knowledge base (index: `sataklela/docs/knowledge/README.md` in the `sataklela` repo), then this repo's `docs/src/knowledge/`,
+ADRs and runbooks for an existing decision tree. Reuse or extend it. When you make a new multi-step decision, add or
+update its decision tree and index entry in the same PR. (PWA → Play app: `docs/src/knowledge/pwa-to-play-store.md`.)
+
 **Every session:** read `plan/PROGRESS.md`, then §0–§5 of `plan/EXECUTION_PLAN.md` and only the section for the
 current phase. Product rules live in `plan/SPEC.md` — read only the sections the phase references.
 
@@ -59,8 +64,8 @@ Teleport needs a clean working tree in `~/qroove`.
 
 ## Android app (Phases 19–20, ADR 0029)
 
-- Capacitor 8 shell (`apps/mobile`) whose WebView opens `https://qroove.sataklela.com`; APK distributed
-  **outside Google Play** (GitHub Releases / third-party stores). Runbook: `docs/src/runbook/android.md`.
+- Capacitor 8 shell (`apps/mobile`) whose WebView opens `https://qroove.sataklela.com`; APK on GitHub Releases and
+  the sataklela.com case study; AAB for Google Play (`runbook/google-play.md`). Runbook: `docs/src/runbook/android.md`.
 - Native features only through `apps/web/src/shared/native.ts` (web fallback for each), so site and app never differ.
 - Sign-in in the app: Custom Tab + one-time code (`apps/server/src/api/appHandoff.ts`).
 - Gapless/weak network: next song reserved while one plays; player outbox (`apps/web/src/player/outbox.ts`),
