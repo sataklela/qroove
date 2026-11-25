@@ -92,6 +92,15 @@ jobs:
           pnpm exec cap sync android
           cd android && ./gradlew --no-daemon assembleDebug
           echo "APP_ID=$(node -p "require('../capacitor.config.json').appId")" >> "$GITHUB_ENV"
+      - name: R8 release build, signed with the debug key (test only)
+        working-directory: apps/mobile
+        run: |
+          git checkout capacitor.config.json
+          pnpm exec cap sync android
+          cd android && ./gradlew --no-daemon assembleRelease
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$bt/apksigner" sign --ks ~/.android/debug.keystore --ks-pass pass:android \
+            --out "$GITHUB_WORKSPACE/release-test.apk" app/build/outputs/apk/release/app-release-unsigned.apk
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -108,6 +117,7 @@ jobs:
           script: |
             adb install -r apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
             node tests/android-tv/smoke.mjs
+            bash tests/android-tv/release-smoke.sh
       - if: always()
         uses: actions/upload-artifact@v4
         with:
