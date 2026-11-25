@@ -2540,3 +2540,8 @@ html[data-tv] .layout {
     box-shadow: 0 0 0 8px rgb(245 158 11 / 0.3);
   }
 }
+/* TV: the player card holds the main controls; give it more of the short (540 px) screen. It still
+   scrolls inside, and the remote scrolls a focused button into view. */
+html[data-tv] .player-console {
+  max-height: 50vh;
+}
