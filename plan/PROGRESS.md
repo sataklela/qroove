@@ -3,7 +3,7 @@
 Update at the end of every phase (see `plan/EXECUTION_PLAN.md` §5).
 
 **Current phase:** 19–20 — Android app (Capacitor) + gapless playback on a weak network (2026-11-23)
-**Next session starts with:** Android phone checks all done (2026-11-24, moto g35 Android 16): room link opens the app (App Link verified), guest join + add, Google sign-in round trip via Custom Tab, Spotify under More, install, native bridge, host, auto-advance (≈1.5 s gap), 2-song offline run + catch-up, screen kept on. Also 2026-11-24: real touch drag-to-sort and add-from-playlist on Android; house playlists are live (starter songs). Laptop player (Spotify Premium) + phone guest verified live 2026-11-24: auto-advance ~1–2 s, guest song played in turn, phone updates in 3–6 s (after fixing the Spotify hand-off hang, #22). Auto-skip of unplayable songs (#20, owner decision) verified live. Next: cut a 0.4.1 release (bump `apps/web/package.json`, tag `v0.4.1`) only if an APK change is needed — web fixes reach the app on reload.
+**Next session starts with:** v0.4.1 released 2026-11-25 (GitHub release: APK + AAB + SHA256SUMS; R8-shrunk; Android TV support). Verified: R8 release build and TV mode on the Android 11 TV emulator in CI (`android-tv` job, WebView 90), browser TV e2e. Not yet verified on hardware: 0.4.1 on a phone (Scan QR, Google sign-in return, keep-awake) and on the owner's projector (no Wireless debugging: needs one USB `adb tcpip 5555`, planned at a friend's place). Google Play: 0.4.0 submitted by the owner (account verification pending); upload `qroove-0.4.1.aab` next and opt in to Android TV (runbook/google-play.md). Decision record: docs/src/knowledge/pwa-to-play-store.md.
 
 ## Phases
 
