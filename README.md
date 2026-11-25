@@ -13,7 +13,18 @@ Fair, collaborative music queues for dance socials.
 
 Guests join an event from a QR code, add songs from a link or by title, and a fair scheduler decides the order:
 a per-person song limit, no back-to-back songs from one person, and caps on how long one style can run. The
-organiser controls the night; one device plays the music from local files (or in manual mode). No accounts.
+organiser controls the night; one device (a laptop, a phone or a TV) plays the music through the official YouTube or Spotify players or
+from local files. No accounts needed.
+
+## Apps
+
+- **Web:** any phone or computer browser; guests never need to install anything.
+- **Android** (phones, tablets, **Android TV and projectors**): the same app in a thin native shell, with the
+  screen kept on, songs that ride out a weak network, QR scanning and a remote-control TV layout.
+  Download from the [GitHub releases](../../releases/latest); Google Play listing in review.
+  Guide: [Android app](https://qroove.sataklela.com/docs/guide/android).
+- How the web app became a Play-ready Android app, step by step (reusable for other apps):
+  [decision record](docs/src/knowledge/pwa-to-play-store.md).
 
 ## A CSR initiative
 

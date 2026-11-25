@@ -3,7 +3,9 @@
 The Android app (`apps/mobile`) is a Capacitor shell that opens the live site
 (`https://qroove.sataklela.com`) in a WebView, with native extras: sign-in in a Custom Tab, a QR
 scanner, room links that open the app, and the screen kept on. See [ADR 0029](/adr/0029-android-capacitor).
-It is distributed outside Google Play. Android 8 or later.
+It runs on phones, tablets and Android TV / projectors (Android 8 or later). It is distributed as an APK
+(GitHub Releases, and the sataklela.com case study for Android visitors) and as an AAB on Google Play
+(see [Google Play release](/runbook/google-play)).
 
 ## Build
 

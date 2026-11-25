@@ -4,6 +4,18 @@ The organiser's device plays the music. There is no separate player page: the or
 itself, and a second device with organiser access takes over from the first. After a handover, the new organiser's device
 becomes the player.
 
+## Which device should play
+
+Any device that is connected to the speakers can play: a laptop, a phone, or an **Android TV or
+projector**.
+
+- **Laptop:** the most reliable; plug it into the sound system and keep the Qroove tab open.
+- **Phone:** use the [Android app](/guide/android) if you can: it keeps the screen on and carries on
+  through a weak network for up to two songs.
+- **TV or projector:** install the Android app on it and host from there with the remote. The big
+  screen shows what is playing, what is next, and a large room code and QR so guests join from across
+  the room. On a laptop connected to a projector, open the site with `?tv=1` for the same layout.
+
 ## Pausing and skipping
 
 **Pause At End of Current Song** lets the song finish, then holds the queue. **Resume Playback** starts the next song. **Skip** asks twice, because the song is lost and the queue changes.

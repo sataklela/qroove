@@ -5,7 +5,8 @@ You run an event from your phone. There is no account: control belongs to the br
 ## Start an event: one tap
 
 On the home page, tap **Host an event**. That is all: you land on the organiser page with the event already
-running, on the defaults.
+running, on the defaults. On an Android TV or projector, press **OK** on the remote: the button is already
+selected (see [Which device should play](/guide/player#which-device-should-play)).
 
 | Setting          | Default                                                        |
 | ---------------- | -------------------------------------------------------------- |

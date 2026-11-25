@@ -31,12 +31,10 @@ Credentials → Create credentials → OAuth client ID → **Web application**.
 - Authorised JavaScript origins: `https://qroove.sataklela.com`
 - Authorised redirect URIs: `https://qroove.sataklela.com/api/google/callback` (add `http://localhost:3000/api/google/callback` for local work)
 
-## 4. Railway
+## 4. Server variables
 
-```
-railway variables --service web --set GOOGLE_OAUTH_CLIENT_ID=... --set GOOGLE_OAUTH_CLIENT_SECRET=...
-railway up --ci --service web
-```
+Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` on the Coolify app `qroove-web` (dashboard →
+Environment variables, or `cool-env` on the VPS; see [Deploy](/runbook/deploy)), then redeploy.
 
 Until both are set the _Log in with Google_ link does not appear and only the public-channel lookup works.
 
