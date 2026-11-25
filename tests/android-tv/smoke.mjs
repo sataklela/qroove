@@ -1,3 +1,4 @@
+/* global document */
 // Android TV emulator smoke test (CI job `android-tv`). The debug app points at the server running on
 // the CI host (10.0.2.2:3100 from inside the emulator); Playwright drives its WebView over CDP while
 // the remote is simulated with `adb shell input keyevent`.
