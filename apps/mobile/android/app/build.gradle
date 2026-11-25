@@ -42,8 +42,11 @@ android {
     buildTypes {
         release {
             if (ksPath) signingConfig signingConfigs.release
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 shrinks the app; Play gets mapping.txt (deobfuscation) and native debug symbols.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            ndk { debugSymbolLevel 'FULL' }
         }
     }
 }

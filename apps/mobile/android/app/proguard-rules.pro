@@ -19,3 +19,16 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Capacitor finds plugins and @PluginMethod methods by reflection; keep them (belt and braces on top of
+# the libraries' own consumer rules).
+-keep class com.getcapacitor.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin public class * { *; }
+-keepclassmembers class * { @com.getcapacitor.PluginMethod public *; }
+-keep class com.sataklela.qroove.** { *; }
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
+# Barcode scanner plugin: its models are read by reflection; gson annotations are compile-only.
+-keep class com.outsystems.plugins.** { *; }
+-dontwarn com.google.gson.annotations.SerializedName
