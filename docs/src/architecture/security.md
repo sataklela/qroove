@@ -29,7 +29,7 @@ attach.
 
 In-process sliding windows (one instance in production): 120/min/IP for the whole API; event create and import
 5/hour/IP; join 20/min/IP; submit 10/min/participant and 30/min/IP; resolve-link 20/min/IP; admin session,
-handover claim and recovery 10/min/IP. `trustProxy` is on so the IP is the client's, not Railway's. Request
+handover claim and recovery 10/min/IP. `trustProxy` is on so the IP is the client's, not the proxy's (Cloudflare and Coolify's Traefik). Request
 bodies are capped at 16 KB.
 
 ## Outbound requests (SSRF)

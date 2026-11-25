@@ -2,8 +2,8 @@
 
 ## What is kept, and for how long
 
-The server runs a retention purge when it starts and every 6 hours (a Railway cron service would cost
-extra, and production runs a single instance). It can also be triggered from outside.
+The server runs a retention purge when it starts and every 6 hours (production runs a single
+instance, so no separate cron service is needed). It can also be triggered from outside.
 
 | Data                                                | Deleted                                  |
 | --------------------------------------------------- | ---------------------------------------- |

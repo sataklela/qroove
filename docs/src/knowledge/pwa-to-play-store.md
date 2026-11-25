@@ -86,26 +86,26 @@ Web app (PWA) works in any browser
 
 ## Decisions at a glance
 
-| # | Question | Options considered | Chosen | Why | Where |
-| --- | --- | --- | --- | --- | --- |
-| 1 | App at all? | Stay PWA · app | App for organisers | Keep-awake, weak network, QR, app links | ADR 0029 |
-| 2 | Wrapper | Native · TWA · Capacitor | Capacitor | One codebase; native plugins; TWA lacked them | ADR 0028, 0029 |
-| 3 | Assets | Bundled · remote URL | Remote URL | Same origin keeps auth/SSE/embeds working; instant updates | `apps/mobile/capacitor.config.json` |
-| 4 | OAuth | WebView · Custom Tab | Custom Tab + one-time code | Google blocks WebView sign-in | `appHandoff.ts` |
-| 5 | Offline music | Cache audio · reserve ahead | Reserve ahead + outbox (2 songs) | Caching breaks YouTube/Spotify terms | `outbox.ts`, ADR 0029 |
-| 6 | Native calls | Direct plugin use · one wrapper | `native.ts` with web fallbacks | Site and app never differ | `apps/web/src/shared/native.ts` |
-| 7 | Key | Per-build · one kept key | One key on the server, never regenerated | Updates need the same key | `runbook/android.md` |
-| 8 | Versions | Manual · derived | Derived from `package.json` | One number to bump | `app/build.gradle` |
-| 9 | Device QA | Emulator · real device | Real phone over Tailscale + CDP; TV emulator in CI | VPS has no KVM | `runbook/android.md` |
-| 10 | Pre-Play distribution | Store · direct | GitHub Release + Android-only case-study download | Works before Play approval | sataklela PR #76 |
-| 11 | Play package | APK · AAB | AAB (+ APK for sideload) | Play requires AAB | `.github/workflows/android.yml` |
-| 12 | Play signing | Upload our key as app key · Google-managed | Google-managed, ours = upload key | Default, recoverable | `runbook/google-play.md` |
-| 13 | App links on Play | One cert · both | Both SHA-256s in `ANDROID_CERT_SHA256` | Play re-signs the app | `apps/server/src/app.ts` |
-| 14 | App access | No · Yes + instructions | Yes + "no login needed" steps | Codes/QR count as restricted | `runbook/google-play.md` |
-| 15 | AD_ID | Yes · No | No | Verified absent in manifest and code | this page |
-| 16 | Shrinking | Off · R8 | R8 from 0.4.1 | Smaller (AAB 20.5 → 15.5 MB), clears warning | Qroove PR #26 |
-| 17 | Terms | None · page | `/terms` in app + docs | Play listing and users | Qroove PR #27 |
-| 18 | TV | Separate app · same app | Same app, TV mode | One build, one listing | Qroove 0.4.1 |
+| #   | Question              | Options considered                         | Chosen                                             | Why                                                        | Where                               |
+| --- | --------------------- | ------------------------------------------ | -------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------- |
+| 1   | App at all?           | Stay PWA · app                             | App for organisers                                 | Keep-awake, weak network, QR, app links                    | ADR 0029                            |
+| 2   | Wrapper               | Native · TWA · Capacitor                   | Capacitor                                          | One codebase; native plugins; TWA lacked them              | ADR 0028, 0029                      |
+| 3   | Assets                | Bundled · remote URL                       | Remote URL                                         | Same origin keeps auth/SSE/embeds working; instant updates | `apps/mobile/capacitor.config.json` |
+| 4   | OAuth                 | WebView · Custom Tab                       | Custom Tab + one-time code                         | Google blocks WebView sign-in                              | `appHandoff.ts`                     |
+| 5   | Offline music         | Cache audio · reserve ahead                | Reserve ahead + outbox (2 songs)                   | Caching breaks YouTube/Spotify terms                       | `outbox.ts`, ADR 0029               |
+| 6   | Native calls          | Direct plugin use · one wrapper            | `native.ts` with web fallbacks                     | Site and app never differ                                  | `apps/web/src/shared/native.ts`     |
+| 7   | Key                   | Per-build · one kept key                   | One key on the server, never regenerated           | Updates need the same key                                  | `runbook/android.md`                |
+| 8   | Versions              | Manual · derived                           | Derived from `package.json`                        | One number to bump                                         | `app/build.gradle`                  |
+| 9   | Device QA             | Emulator · real device                     | Real phone over Tailscale + CDP; TV emulator in CI | VPS has no KVM                                             | `runbook/android.md`                |
+| 10  | Pre-Play distribution | Store · direct                             | GitHub Release + Android-only case-study download  | Works before Play approval                                 | sataklela PR #76                    |
+| 11  | Play package          | APK · AAB                                  | AAB (+ APK for sideload)                           | Play requires AAB                                          | `.github/workflows/android.yml`     |
+| 12  | Play signing          | Upload our key as app key · Google-managed | Google-managed, ours = upload key                  | Default, recoverable                                       | `runbook/google-play.md`            |
+| 13  | App links on Play     | One cert · both                            | Both SHA-256s in `ANDROID_CERT_SHA256`             | Play re-signs the app                                      | `apps/server/src/app.ts`            |
+| 14  | App access            | No · Yes + instructions                    | Yes + "no login needed" steps                      | Codes/QR count as restricted                               | `runbook/google-play.md`            |
+| 15  | AD_ID                 | Yes · No                                   | No                                                 | Verified absent in manifest and code                       | this page                           |
+| 16  | Shrinking             | Off · R8                                   | R8 from 0.4.1                                      | Smaller (AAB 20.5 → 15.5 MB), clears warning               | Qroove PR #26                       |
+| 17  | Terms                 | None · page                                | `/terms` in app + docs                             | Play listing and users                                     | Qroove PR #27                       |
+| 18  | TV                    | Separate app · same app                    | Same app, TV mode                                  | One build, one listing                                     | Qroove 0.4.1                        |
 
 ## Gotchas that cost time
 

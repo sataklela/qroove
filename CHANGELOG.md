@@ -5,7 +5,9 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
-### Added (Android TV, 0.4.1)
+## [0.4.1] — 2026-11-25
+
+### Added
 
 - Android TV / Google TV / projectors: shows on the TV home screen (leanback launcher, 320×180 banner;
   camera and touchscreen optional), switches the site to a 10-foot layout (overscan-safe margins,
@@ -13,25 +15,16 @@ versioning: [SemVer](https://semver.org/).
   action focused, Back closes panels first). Organiser screen on a TV shows a large join code and QR.
   `?tv=1` gives the same layout in any browser.
 - CI: Android TV emulator smoke test (`android-tv` job); browser TV test (`tests/e2e/tv.spec.ts`).
-
-### Added (terms)
-
 - Terms of service at `/terms` (menu and docs); privacy text no longer names Railway as the host.
-
-### Changed (Android 0.4.1)
-
-- Release builds are shrunk with R8 (AAB 20.5 → 15.5 MB, APK 33 → 25 MB); the deobfuscation map ships inside the AAB, so Play's "no deobfuscation file" warning goes away. The "no native debug symbols" warning stays: the only native code is Google's prebuilt, already-stripped libraries (ML Kit barcode, CameraX, AndroidX), which ship no symbols.
-
-### Added (Google Play prep)
-
 - Android CI also builds a signed app bundle (`.aab`) for Google Play; store graphics in `apps/mobile/play/`; runbook `runbook/google-play`.
-
-### Added
-
 - Docs: **Android app** guide (`/docs/guide/android`) with install steps and troubleshooting. The APK is offered on sataklela.com's Qroove case study, to Android phones only; the home screen shows an **Android app** link to the guide on Android browsers (not inside the app).
+- Org knowledge base: the decision record *PWA → Play-ready Android app* (`docs/src/knowledge/pwa-to-play-store.md`) and the "knowledge first" rule in `CLAUDE.md`.
+- Google Play TV listing assets: banner and two 1920×1080 TV screenshots from the emulator (`apps/mobile/play/`).
+- CI: the R8-shrunk release build runs on the Android 11 TV emulator against the live site (launch, host with the remote, logcat checked for crashes and stripped classes).
 
 ### Changed
 
+- Release builds are shrunk with R8 (AAB 20.5 → 15.5 MB, APK 33 → 25 MB); the deobfuscation map ships inside the AAB, so Play's "no deobfuscation file" warning goes away. The "no native debug symbols" warning stays: the only native code is Google's prebuilt, already-stripped libraries (ML Kit barcode, CameraX, AndroidX), which ship no symbols.
 - **Unplayable songs are skipped automatically** (video blocks embedding, preview-only Spotify, a file that will not open): the player reports it with the new `POST /api/events/:id/player/unplayable`, the song becomes UNAVAILABLE ("Skipped: it could not be played here"), the requester's slot is freed and the next song starts with no tap. Manual mode remains only when the server cannot be reached.
 
 ### Fixed
@@ -42,55 +35,18 @@ versioning: [SemVer](https://semver.org/).
 - Android app: the header and footer no longer sit under the status and navigation bars (the app draws edge to edge; pages now pad by the screen insets, which also helps notched phones in the browser).
 - Player: "No network" now shows only after a report really failed, not while one is on its way.
 - Player: after a reload (or the app being restarted) the playing song carries on by itself from where it should be (YouTube and local files), instead of asking the organiser to press *Mark ended*. A song that must have finished meanwhile is closed rather than replayed. Spotify songs still need the tap.
+- Older WebViews (before Chrome 111, e.g. WebView 90 on Android 11 TVs and projectors): buttons lost their background (no `color-mix()`), leaving dark text on dark; heights using `dvh` were ignored. Fallbacks added.
+- TV: the player card is taller, so its buttons are no longer cut off on a 540 px-high screen.
 
 ## [0.4.0] — 2026-11-23
+
+Includes everything since 0.3.0, among it the move from Railway to the Sataklela VPS and Coolify (2026-11-19).
 
 ### Added
 
 - **Android app** (`apps/mobile`, ADR 0029): a Capacitor shell around the live site, handed out as an APK (no Google Play). Room links and QR codes open the app (`/.well-known/assetlinks.json` from `ANDROID_CERT_SHA256`); **Scan QR** on the home screen; the screen stays on natively while playing; Google and Spotify sign-in run in a Custom Tab and come back through a one-time code (`POST /api/app/redeem`).
 - **No gap between songs, even on a weak network.** The next song is reserved while the current one plays and waits cued in its own player; when a song ends the next starts at once and the server is told afterwards (in order, with the real times). If the server cannot be reached the player goes on for up to 2 songs from the last forecast, then waits. `player/started` and `player/finished` accept `at`, and `started` accepts `offline`. YouTube/Spotify audio is never cached.
-
-### Changed
-
-- Icons first: Google/YouTube is the default sign-in, Spotify (pilot) sits under **More**; explanations moved behind an (i). Home: **Host an event** (was "Start an event now").
-- While a song plays, the next song is already reserved; a request that arrives mid-song competes for the song after.
-
-- Privacy page: full Google user data disclosures (access, use, sharing, protection, retention/deletion, Limited Use) for OAuth verification.
-- "Sign out of Google" button under My YouTube playlist; sign-out now also revokes the grant at Google. Privacy contact email added.
-
-## [Unreleased]
-
-### Changed
-
-- Hosting moved onto **Coolify** on the Sataklela VPS (2026-11-19; proxy switch 17:39:03 UTC). Coolify builds the repo `Dockerfile`, deploys `main` (triggered by `cool-poll` within about 2 minutes), and keeps the old container if a new one fails its health check. Details and the switch-over record: `docs/migration/railway-to-vps.md` → "Platform: Coolify". No downtime. Data stays in `eur3`.
-
-### Changed
-
-- **curl in the image** for Coolify's health check on the Sataklela VPS (2026-11-19).
-
-### Fixed
-
-- **Outage, 2026-11-19 15:46:03 to 15:52:30 UTC (about 6½ minutes): every API call that reads Firestore returned 500.** Cause: while the `qroove-server` service account was being granted *Cloud Datastore Owner* (to create a database in `asia-south1`), a change in the Google Cloud console removed the role that gave it read and write access. Firestore answered `PERMISSION_DENIED`, and 22 errors were logged. Restored by granting *Cloud Datastore Owner*, which includes read and write. The static pages and `/api/health` kept answering 200, because health does not touch Firestore. **Lesson:** when changing a service account's roles, add roles; never edit or replace the existing ones. A Firestore-backed health check would have caught this sooner.
-- **Data move to Mumbai not done:** a named database needs a billing-enabled (Blaze) project, and `qroove-sataklela` is on the free Spark plan. The data stays in `eur3` until that is decided.
-
-### Added
-
 - **`FIRESTORE_DATABASE_ID` (optional).** Names the Firestore database to use; unset means `(default)`. Added 2026-11-19 so the data can move to a database in `asia-south1` (Mumbai) by changing one variable, and move back by removing it.
-
-### Changed
-
-- **Hosting moved from Railway to the Sataklela VPS on 2026-11-19 at 11:50:36 UTC** (Cloudflare DNS switch; first request served by the VPS at 11:51 UTC). Same commit as Railway at cutover (`4c4ea4c`). `qroove.sataklela.com` is now an A record to `64.247.186.195`, **proxied** through Cloudflare (it was an unproxied CNAME to `jy6odhax.up.railway.app`). TLS at the origin is a Cloudflare Origin CA certificate. The VPS deploys `main` by itself within about 2 minutes of a push (`sk-deploy`). Railway is still running, untouched, as the rollback target. See `docs/src/runbook/deploy.md` and `docs/migration/railway-to-vps.md`.
-  - **Incidents during the move:** (1) Caddy's first reload failed because a validation run as root created its access log as root; fixed by changing the file's owner. No traffic was affected; it happened before the DNS switch. (2) BigRock's server image set a DNS search domain (`webhostbox.com`) with a wildcard record, so `metadata.google.internal` and any other unknown short name resolved to a BigRock parking server (`64.190.63.222`). Removed from `/etc/resolv.conf` at about 11:55 UTC; the original is kept at `/root/resolv.conf.orig-2026-11-19`.
-  - **Known issue (open): Firestore is slower from the VPS.** The database is in `eur3` (Europe) and the VPS is in Asia (TCP connect: Singapore 76 ms, Amsterdam 191 ms, Washington 275 ms). Each Firestore query takes about 0.4–2.2 s against a few ms from Railway's Netherlands region. The startup retention purge takes about 47 s instead of 6 s. Measured end to end, `GET /api/events/by-slug/…` took 0.6–1.0 s against 0.4–0.46 s through Railway. If guests report slow adds or a laggy queue, check this first.
-  - **What to check if something breaks after the cutover:** `ssh deploy@64.247.186.195`, then `cd /srv/qroove && docker compose logs --since 1h`; `/var/log/sk-deploy.log` (deploys and rollbacks); `/var/log/caddy/access.log`. A request that stops at Cloudflare with a 52x error means the VPS or Caddy is down. During the first 5 minutes after the switch, some clients still used Railway (old TTL 300 s). The two servers have separate in-memory event buses, so live updates could have been split across them during that window.
-  - **Rollback:** in Cloudflare, set `qroove.sataklela.com` back to `CNAME jy6odhax.up.railway.app`, DNS only. Railway keeps deploying `main`, so it stays current.
-
-### Removed
-
-- **YouTube advert muting.** The organiser page no longer mutes its output while it guesses an advert is playing, and no longer says adverts play silently. This is required by the YouTube API Services Developer Policies (no interfering with adverts or modifying audio), and testing showed the embedded player served no adverts anyway. ADR 0022 amended.
-
-### Added
-
 - **Fewest taps (Phase 18).** The whole product was reworked so each action takes the least it can, and no screen scrolls (only the queue list does).
   - **One-tap event.** _Start an event now_ on the home page creates an event with the defaults (2 hours, Salsa and Bachata alternating, 20 songs per person) and opens the organiser page with it already running. The planner is still there behind a small _Plan in detail_ link.
   - **Settings while the music plays.** The organiser's More page has event time, songs in a row, songs per person, genres and _guests first_; each control saves itself. `POST /api/events/:id/admin/settings`. ADR 0025.
@@ -98,7 +54,6 @@ versioning: [SemVer](https://semver.org/).
   - **No name to type.** Opening the event page joins it. Each guest gets a two-word codename, a vegetable and a sea animal (_Carrot Octopus_), unique within the event, shown to them and beside their songs on the organiser's queue. ADR 0026.
   - **Guest page on one screen:** now playing, the queue, and one _＋ Add a song_ button. A guest's own songs are marked in the queue and withdrawn there with one swipe to the left (or ✕ then Remove). Adding is paste, then one tap on _Add as Salsa_ / _Add as Bachata_.
   - **Organiser queue:** only what is still to come, in play order, with codenames; swipe left to remove. The room code is always in the top bar.
-
 - **Log in with Google for YouTube playlists.** _My YouTube playlist_ now works like _My Spotify playlist_: a guest logs in with Google (read-only `youtube.readonly` scope; the refresh token stays in an encrypted HttpOnly cookie on their device) and sees their own playlists, private ones and _Liked music_ included. Needs `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` and a consent screen set up in Google Cloud (runbook: Google sign-in). Without them the login link is hidden and the public-channel lookup remains. ADR 0024.
 - **My YouTube playlist.** Under _Add music_, guests can paste their YouTube channel link or @handle (remembered on that device) and pick one of its public playlists, like _My Spotify playlist_ but with no sign-in. Uses the existing YouTube Data API key (`GET /api/youtube/playlists`, 2 quota units); the songs then load through the same playlist import as a pasted link. 
 - **Radio fallback.** An organiser switch (on by default; fills genre gaps when one genre is held by its run limit) plays a live station when no guest song is due: Bachata Sensual Radio is enabled (Salsa, Other and Cha-cha have no verified station yet; SalsaViva answered 401). The player tells the server which radio track is audible (`POST /player/radio/started` and `/ended`, `POST /admin/radio`); radio updates the genre history without being anyone's request and never counts toward a run; a waiting guest song takes over at the station's next track, after 4 minutes at most, or on _Play the queued song now_. Guests see "Radio fallback" on _Now playing_. ADR 0023.
@@ -119,6 +74,17 @@ versioning: [SemVer](https://semver.org/).
 
 ### Changed
 
+- Icons first: Google/YouTube is the default sign-in, Spotify (pilot) sits under **More**; explanations moved behind an (i). Home: **Host an event** (was "Start an event now").
+- While a song plays, the next song is already reserved; a request that arrives mid-song competes for the song after.
+- Privacy page: full Google user data disclosures (access, use, sharing, protection, retention/deletion, Limited Use) for OAuth verification.
+- "Sign out of Google" button under My YouTube playlist; sign-out now also revokes the grant at Google. Privacy contact email added.
+- Hosting moved onto **Coolify** on the Sataklela VPS (2026-11-19; proxy switch 17:39:03 UTC). Coolify builds the repo `Dockerfile`, deploys `main` (triggered by `cool-poll` within about 2 minutes), and keeps the old container if a new one fails its health check. Details and the switch-over record: `docs/migration/railway-to-vps.md` → "Platform: Coolify". No downtime. Data stays in `eur3`.
+- **curl in the image** for Coolify's health check on the Sataklela VPS (2026-11-19).
+- **Hosting moved from Railway to the Sataklela VPS on 2026-11-19 at 11:50:36 UTC** (Cloudflare DNS switch; first request served by the VPS at 11:51 UTC). Same commit as Railway at cutover (`4c4ea4c`). `qroove.sataklela.com` is now an A record to `64.247.186.195`, **proxied** through Cloudflare (it was an unproxied CNAME to `jy6odhax.up.railway.app`). TLS at the origin is a Cloudflare Origin CA certificate. The VPS deploys `main` by itself within about 2 minutes of a push (`sk-deploy`). Railway is still running, untouched, as the rollback target. See `docs/src/runbook/deploy.md` and `docs/migration/railway-to-vps.md`.
+  - **Incidents during the move:** (1) Caddy's first reload failed because a validation run as root created its access log as root; fixed by changing the file's owner. No traffic was affected; it happened before the DNS switch. (2) BigRock's server image set a DNS search domain (`webhostbox.com`) with a wildcard record, so `metadata.google.internal` and any other unknown short name resolved to a BigRock parking server (`64.190.63.222`). Removed from `/etc/resolv.conf` at about 11:55 UTC; the original is kept at `/root/resolv.conf.orig-2026-11-19`.
+  - **Known issue (open): Firestore is slower from the VPS.** The database is in `eur3` (Europe) and the VPS is in Asia (TCP connect: Singapore 76 ms, Amsterdam 191 ms, Washington 275 ms). Each Firestore query takes about 0.4–2.2 s against a few ms from Railway's Netherlands region. The startup retention purge takes about 47 s instead of 6 s. Measured end to end, `GET /api/events/by-slug/…` took 0.6–1.0 s against 0.4–0.46 s through Railway. If guests report slow adds or a laggy queue, check this first.
+  - **What to check if something breaks after the cutover:** `ssh deploy@64.247.186.195`, then `cd /srv/qroove && docker compose logs --since 1h`; `/var/log/sk-deploy.log` (deploys and rollbacks); `/var/log/caddy/access.log`. A request that stops at Cloudflare with a 52x error means the VPS or Caddy is down. During the first 5 minutes after the switch, some clients still used Railway (old TTL 300 s). The two servers have separate in-memory event buses, so live updates could have been split across them during that window.
+  - **Rollback:** in Cloudflare, set `qroove.sataklela.com` back to `CNAME jy6odhax.up.railway.app`, DNS only. Railway keeps deploying `main`, so it stays current.
 - Events no longer have a generated three-word name; the room code is the name (older events keep theirs). The event-name ledger is gone.
 - Rules are no longer frozen when the event starts (the fingerprint is recalculated and each change is in the audit log).
 - Removed from the guest page: the name form, _Next up_, _My next song_, the _My songs_ tab and the played-songs list. Removed from the organiser page: the _Time_ and _Rules_ panels (settings replace them) and played songs in the queue.
@@ -138,15 +104,6 @@ versioning: [SemVer](https://semver.org/).
 - Tidier player and guest pages: local files are an optional collapsed section, the audio bar appears only when a file plays, and empty or repeated guest sections are gone.
 - One "Add music" card replaces the separate song form and the music-plus-sign section. It takes a link and a top-level genre, and warns which other genres to remove. Artist, length and typed titles are no longer asked for.
 - The live status is one small green dot under the event name in the header, with no "Live" text.
-
-### Fixed
-
-- **Radio stopping when the organiser's phone went to sleep.** The screen was kept on only while a queued song played, and the lock was dropped when the song ended, so the phone timed out during radio. The screen now stays on for as long as the device is the player of a running event (songs, gaps and radio), and the lock is taken again whenever the page comes back into view (`player/keepAwake.ts`). A station whose sound stops without an error is reconnected after about 16 seconds (`watchStall`, `RADIO_DEFAULTS.stallCheckMs`), a start the browser refused while the page was hidden is retried on return, and the lock screen shows the station and track. Not yet confirmed on a phone.
-
-- Long-press paste works in fields on organiser, player and event pages.
-
-### Changed (also)
-
 - Joining: the permanent 6-character room code (shown as two triplets, `ABC-123`) now joins on its own, so remote classes can use it, and the landing page opens the event as soon as the sixth character is typed. The QR code stays on the Invite page as a non-verbal backup (it is the same public link). The secret join key is gone.
 - The event name moves to the header on organiser and attendee pages: very small, lower-case, hyphen-separated (`mango-octopus-rye`), Courier New, in the menu's colour and not selectable, so it reads as a label. The big heading is kept for screen readers only.
 - Creating an event (or carrying one over) goes straight to the organiser page. The interstitial that showed the organiser link and recovery secret is gone, and so is the recovery form: control belongs to the browser that created the event, and moves by handover.
@@ -159,6 +116,17 @@ versioning: [SemVer](https://semver.org/).
 - Style selectors show the style's name inside a box whose thick border is its colour (striped for non-Latin); unselected boxes fade border and text together. The same boxes are used when an attendee picks a style for a song.
 - Wheel pickers settle faster: the value follows the wheel live, and the rest position is confirmed on `scrollend` (fallback 40 ms, was 90 ms).
 - Header: the menu is a three-line icon holding Docs, Privacy and Source (plus session rules on event pages); light/dark is a sun/moon toggle beside it.
+
+### Removed
+
+- **YouTube advert muting.** The organiser page no longer mutes its output while it guesses an advert is playing, and no longer says adverts play silently. This is required by the YouTube API Services Developer Policies (no interfering with adverts or modifying audio), and testing showed the embedded player served no adverts anyway. ADR 0022 amended.
+
+### Fixed
+
+- **Outage, 2026-11-19 15:46:03 to 15:52:30 UTC (about 6½ minutes): every API call that reads Firestore returned 500.** Cause: while the `qroove-server` service account was being granted *Cloud Datastore Owner* (to create a database in `asia-south1`), a change in the Google Cloud console removed the role that gave it read and write access. Firestore answered `PERMISSION_DENIED`, and 22 errors were logged. Restored by granting *Cloud Datastore Owner*, which includes read and write. The static pages and `/api/health` kept answering 200, because health does not touch Firestore. **Lesson:** when changing a service account's roles, add roles; never edit or replace the existing ones. A Firestore-backed health check would have caught this sooner.
+- **Data move to Mumbai not done:** a named database needs a billing-enabled (Blaze) project, and `qroove-sataklela` is on the free Spark plan. The data stays in `eur3` until that is decided.
+- **Radio stopping when the organiser's phone went to sleep.** The screen was kept on only while a queued song played, and the lock was dropped when the song ended, so the phone timed out during radio. The screen now stays on for as long as the device is the player of a running event (songs, gaps and radio), and the lock is taken again whenever the page comes back into view (`player/keepAwake.ts`). A station whose sound stops without an error is reconnected after about 16 seconds (`watchStall`, `RADIO_DEFAULTS.stallCheckMs`), a start the browser refused while the page was hidden is retried on return, and the lock screen shows the station and track. Not yet confirmed on a phone.
+- Long-press paste works in fields on organiser, player and event pages.
 
 ## [0.3.0] - 2026-10-29
 
