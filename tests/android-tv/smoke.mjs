@@ -1,10 +1,8 @@
-/* global document */
 // Android TV emulator smoke test (CI job `android-tv`). The debug app points at the server running on
 // the CI host (10.0.2.2:3100 from inside the emulator); Playwright drives its WebView over CDP while
 // the remote is simulated with `adb shell input keyevent`.
 import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
-import { chromium } from '@playwright/test';
 
 const PKG = process.env.APP_ID;
 const OUT = 'tv-shots';
@@ -41,14 +39,15 @@ check(!!pid, 'launches');
 await sleep(8000);
 shot('launched');
 
-// 3. Attach to the WebView (debug builds expose webview_devtools_remote_<pid>).
+// 3. Attach to the WebView (debug builds expose webview_devtools_remote_<pid>). Plain CDP over a
+// WebSocket: TV WebViews are often old (Android 11 emulator: WebView 90), too old for Playwright.
 console.log(
   'WebView:',
   sh(`adb shell dumpsys package com.google.android.webview | grep versionName | head -1 || true`),
 );
-let page;
+let ws;
 let last = '';
-for (let i = 0; i < 20 && !page; i++) {
+for (let i = 0; i < 20 && !ws; i++) {
   try {
     const sockets = sh(
       `adb shell cat /proc/net/unix | grep -o 'webview_devtools_remote_[0-9]*' | sort -u || true`,
@@ -56,38 +55,66 @@ for (let i = 0; i < 20 && !page; i++) {
     const name = sockets.find((s) => s.endsWith(`_${pid}`)) ?? sockets[0];
     if (!name) throw new Error('no devtools socket yet');
     adb(`forward tcp:9222 localabstract:${name}`);
-    const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
-    const pages = browser.contexts().flatMap((c) => c.pages());
-    last = `${name}: ${pages.map((p) => p.url()).join(', ') || 'no pages'}`;
-    page = pages.find((p) => p.url().startsWith('http'));
+    const targets = await (await fetch('http://127.0.0.1:9222/json')).json();
+    last = targets.map((t) => `${t.type} ${t.url}`).join(', ');
+    const t = targets.find((x) => x.type === 'page' && x.url.startsWith('http'));
+    if (t) {
+      ws = new WebSocket(t.webSocketDebuggerUrl);
+      await new Promise((ok, no) => ((ws.onopen = ok), (ws.onerror = no)));
+    }
   } catch (e) {
+    ws = undefined;
     last = String(e).slice(0, 200);
   }
-  if (!page) await sleep(1500);
+  if (!ws) await sleep(1500);
 }
-if (!page) console.log('last attach attempt:', last);
-check(!!page, 'WebView reachable over CDP');
-await page.waitForFunction(() => document.documentElement.dataset.tv === '1', null, {
-  timeout: 30_000,
-});
+if (!ws) console.log('last attach attempt:', last);
+check(!!ws, 'WebView reachable over CDP');
+let id = 0;
+const waiting = new Map();
+ws.onmessage = (m) => {
+  const msg = JSON.parse(m.data);
+  waiting.get(msg.id)?.(msg);
+  waiting.delete(msg.id);
+};
+/** Evaluates an expression in the page and returns its value. */
+const js = (expression) =>
+  new Promise((ok) => {
+    const n = ++id;
+    waiting.set(n, (msg) => ok(msg.result?.result?.value));
+    ws.send(
+      JSON.stringify({
+        id: n,
+        method: 'Runtime.evaluate',
+        params: { expression, returnByValue: true },
+      }),
+    );
+  });
+const until = async (expression, what, ms = 30_000) => {
+  for (const end = Date.now() + ms; Date.now() < end; await sleep(500)) {
+    if (await js(expression)) return check(true, what);
+  }
+  check(false, what);
+};
+const focused = () =>
+  js(
+    `(() => { const a = document.activeElement; return a && a !== document.body ? (a.getAttribute('aria-label') || a.textContent || '').trim() : ''; })()`,
+  );
+
+await until(`document.documentElement.dataset.tv === '1'`, 'TV mode is on');
 check(
-  (await page.evaluate(() => navigator.userAgent)).includes('LeanbackShell'),
+  (await js('navigator.userAgent')).includes('LeanbackShell'),
   'TV mode from the UI mode (user agent marker)',
 );
-const focused = () =>
-  page.evaluate(() =>
-    (
-      document.activeElement?.getAttribute('aria-label') ??
-      document.activeElement?.textContent ??
-      ''
-    ).trim(),
-  );
-await page.waitForFunction(
-  () => document.activeElement?.textContent?.includes('Host an event'),
-  null,
-  { timeout: 20_000 },
+await until(
+  `(document.activeElement?.textContent || '').includes('Host an event')`,
+  'focus starts on "Host an event"',
 );
-check(true, 'focus starts on "Host an event"');
+check(
+  (await js(`getComputedStyle(document.querySelector('.landing-host')).backgroundImage`)) !==
+    'none',
+  'buttons keep their background on this WebView',
+);
 shot('home');
 
 // 4. The D-pad moves focus, and comes back.
@@ -98,9 +125,8 @@ check((await focused()).includes('Host an event'), 'D-pad left moves it back');
 
 // 5. OK hosts an event; the join QR stays on screen.
 await key('DPAD_CENTER');
-await page.waitForURL(/\/admin\//, { timeout: 30_000 });
-await page.waitForSelector('.tv-join .qr', { timeout: 30_000 });
-check(true, 'OK hosts an event; big-screen join QR shown');
+await until(`location.pathname.startsWith('/admin/')`, 'OK hosts an event');
+await until(`!!document.querySelector('.tv-join .qr')`, 'big-screen join QR shown');
 await sleep(3000);
 shot('host');
 for (const k of ['DPAD_DOWN', 'DPAD_DOWN', 'DPAD_UP', 'DPAD_RIGHT']) {
