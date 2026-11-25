@@ -7,7 +7,7 @@ export const BRAND = {
   licence: { name: 'AGPL-3.0', url: 'https://www.gnu.org/licenses/agpl-3.0.html' },
   copyrightYear: 2026,
   // Single place to change on org transfer.
-  repoUrl: 'https://github.com/raunak-h/qroove',
+  repoUrl: 'https://github.com/sataklela/qroove',
   privacyEmail: 'sataklela+qroove@gmail.com',
   siteUrl: 'https://qroove.sataklela.com',
   docsPath: '/docs',
