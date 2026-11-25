@@ -97,6 +97,14 @@ function Loaded({ slug, eventId }: { slug: string; eventId: string }) {
     return () => document.body.classList.remove('console');
   }, []);
 
+  // Escape (and the TV remote's Back, see native.ts) closes the Add a song sheet.
+  useEffect(() => {
+    if (!adding) return;
+    const close = (e: KeyboardEvent) => e.key === 'Escape' && setAdding(false);
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [adding]);
+
   // What just happened shows for a few seconds, then makes room for anything longer-lived.
   useEffect(() => {
     if (!notice) return;

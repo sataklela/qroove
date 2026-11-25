@@ -868,6 +868,7 @@ export function PlayerConsole({
             ) : null}
             <button
               className="btn primary"
+              data-tv-focus
               disabled={!canStart}
               onClick={() => {
                 if (match)

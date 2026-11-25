@@ -81,8 +81,14 @@ export function CodeInput({
                   onChange(value.slice(0, i - 1) + value.slice(i));
                   refs.current[i - 1]?.focus();
                 }
-              } else if (e.key === 'ArrowLeft') refs.current[i - 1]?.focus();
-              else if (e.key === 'ArrowRight') refs.current[i + 1]?.focus();
+              } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                // Moves between the boxes; at either end the key is left to TV remote navigation.
+                const next = refs.current[i + (e.key === 'ArrowLeft' ? -1 : 1)];
+                if (next) {
+                  e.preventDefault();
+                  next.focus();
+                }
+              }
             }}
           />
         </Fragment>

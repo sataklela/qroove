@@ -55,6 +55,7 @@ button {
   min-width: 44px;
 }
 .layout {
+  min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -707,6 +708,7 @@ select {
 
 /* ---- organiser console: one screen, only the queue scrolls ---------------------------------- */
 body.console .layout {
+  height: 100vh;
   height: 100dvh;
 }
 body.console .layout main {
@@ -822,6 +824,7 @@ body.console .layout main {
   text-align: center;
 }
 .share .qr {
+  width: min(100%, 38vh);
   width: min(100%, 38dvh);
   height: auto;
   border-radius: 8px;
@@ -1340,6 +1343,7 @@ body.console .layout main {
 }
 .player-console {
   flex: none;
+  max-height: 32vh;
   max-height: 32dvh;
   overflow-y: auto;
 }
@@ -1416,6 +1420,7 @@ body.console .layout main {
 }
 /* A long playlist list scrolls on its own, so the add buttons stay on screen. */
 .add-sheet .pl-picker .search-results {
+  max-height: 30vh;
   max-height: 30dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2424,4 +2429,114 @@ body.console .layout main {
 /* Inside the app there is no browser around the page: no install hints, edge to edge. */
 :root[data-app='android'] .web-only {
   display: none !important;
+}
+
+/* ---- Android TV / projector (data-tv, see native.ts isTv) ------------------------------------
+   A 1080p TV's WebView is usually 960×540 CSS px (1px = 1dp). Android TV guidelines: keep content
+   inside the overscan-safe area (48dp sides, 27dp top/bottom), larger text read from across a room,
+   big targets, and a focus state that can always be seen (there is no pointer, only the D-pad). */
+html[data-tv] {
+  font-size: 18px;
+  color-scheme: dark;
+}
+html[data-tv] body {
+  font-size: 1rem;
+  padding: 27px 48px;
+  box-sizing: border-box;
+}
+html[data-tv] body.console .layout {
+  height: calc(100vh - 54px);
+  height: calc(100dvh - 54px);
+}
+html[data-tv] a,
+html[data-tv] button,
+html[data-tv] input,
+html[data-tv] select,
+html[data-tv] summary {
+  min-height: 48px;
+  min-width: 48px;
+}
+/* Focus is set by the remote and by script, so :focus (not only :focus-visible) must show. */
+html[data-tv] :is(a, button, input, select, textarea, summary, [tabindex]):focus {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 30%, transparent);
+  transform: scale(1.04);
+  transition: transform 0.12s ease-out;
+  position: relative;
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-tv] :focus {
+    transform: none;
+  }
+}
+/* Big-screen organiser view: the player on the left, the way to join always on the right. */
+html[data-tv] div.console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(200px, 28vw, 320px);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'head join'
+    'pager join'
+    'dots join';
+  column-gap: 1.5rem;
+}
+html[data-tv] .console > .console-head {
+  grid-area: head;
+}
+html[data-tv] .console > .pager {
+  grid-area: pager;
+}
+html[data-tv] .console > .pager-dots {
+  grid-area: dots;
+}
+html[data-tv] .tv-join {
+  grid-area: join;
+  align-self: center;
+  text-align: center;
+}
+html[data-tv] .tv-join .qr {
+  width: 100%;
+}
+html[data-tv] .tv-join .room-code {
+  font-size: 2rem;
+  margin: 0 0 0.5rem;
+}
+/* Hover-only affordances never show on a TV: row actions are always visible there. */
+html[data-tv] .song-actions {
+  opacity: 1;
+  visibility: visible;
+}
+html[data-tv] .layout {
+  min-height: calc(100vh - 54px);
+  min-height: calc(100dvh - 54px);
+}
+
+/* ---- Older WebViews (before Chrome 111: many Android 11 TVs and projectors) have no color-mix().
+   Without these, every rule above that uses it is dropped and buttons lose their background. ---- */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  .btn {
+    --btn-top: var(--btn-face);
+    --btn-bot: var(--btn-face);
+    --btn-edge: rgb(0 0 0 / 0.45);
+  }
+  .btn.primary {
+    --btn-edge: rgb(0 0 0 / 0.45);
+  }
+  .btn:disabled {
+    border-color: rgb(128 128 128 / 0.4);
+  }
+  .gold-pill {
+    background: rgb(245 158 11 / 0.12);
+    border-color: rgb(245 158 11 / 0.35);
+  }
+  .genre-chip.on,
+  .validation,
+  .track.playing {
+    background: var(--bg);
+  }
+  html[data-tv] :is(a, button, input, select, textarea, summary, [tabindex]):focus {
+    box-shadow: 0 0 0 8px rgb(245 158 11 / 0.3);
+  }
 }

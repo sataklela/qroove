@@ -106,3 +106,118 @@ export async function nativeKeepAwake(on: boolean): Promise<boolean> {
   await (on ? KeepAwake.keepAwake() : KeepAwake.allowSleep()).catch(() => undefined);
   return true;
 }
+
+const TV_KEY = 'qroove:tv';
+/**
+ * Android TV / projector: the app's MainActivity adds `LeanbackShell` to the user agent on a TV.
+ * `?tv=1` (remembered; `?tv=0` turns it off) gives a browser or a laptop on a projector the same
+ * 10-foot layout.
+ */
+export const isTv = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const q = new URLSearchParams(window.location.search).get('tv');
+    if (q === '1') localStorage.setItem(TV_KEY, '1');
+    if (q === '0') localStorage.removeItem(TV_KEY);
+    if (localStorage.getItem(TV_KEY) === '1') return true;
+  } catch {
+    // storage blocked: fall through to the user agent
+  }
+  return /LeanbackShell/.test(navigator.userAgent);
+};
+
+/** Something closable is open (a sheet, a dialog, the menu): Back closes it instead. */
+function closeTopLayer(): boolean {
+  const open = document.querySelector<HTMLElement>('[role="dialog"], .menu-panel');
+  if (!open) return false;
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  return true;
+}
+
+/**
+ * TV mode: arrow keys (the remote's D-pad) move focus between controls by position, OK clicks,
+ * and Back closes the top sheet before leaving the page. Android's WebView does none of this
+ * itself.
+ */
+export async function setUpTv(): Promise<void> {
+  document.documentElement.dataset.tv = '1';
+  // The polyfill only hooks the keys on window `load`, which has already fired by now: catch that
+  // hook and run it straight away.
+  const add = window.addEventListener.bind(window);
+  const late: Array<() => void> = [];
+  window.addEventListener = ((
+    type: string,
+    fn: EventListenerOrEventListenerObject,
+    o?: unknown,
+  ) => {
+    if (type === 'load' && document.readyState === 'complete' && typeof fn === 'function') {
+      late.push(() => fn(new Event('load')));
+    } else add(type, fn, o as AddEventListenerOptions);
+  }) as typeof window.addEventListener;
+  try {
+    await import('spatial-navigation-polyfill');
+  } finally {
+    window.addEventListener = add;
+  }
+  late.forEach((run) => run());
+  // Never leave focus on nothing: the remote has no pointer to get it back.
+  let lastKey = 0;
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key.startsWith('Arrow')) lastKey = Date.now();
+    },
+    true,
+  );
+  let path = location.pathname;
+  const land = () => {
+    if (location.pathname !== path) {
+      // A new page: its main action may take focus again.
+      path = location.pathname;
+      lastKey = 0;
+    }
+    // A page's main action (data-tv-focus) takes focus once when it becomes usable, unless the
+    // viewer is already moving around with the remote.
+    const main = document.querySelector<HTMLElement>(
+      '[data-tv-focus]:not([disabled]):not([data-tv-claimed])',
+    );
+    if (main && Date.now() - lastKey > 2000) {
+      main.dataset.tvClaimed = '1';
+      main.focus();
+      if (document.activeElement === main) return;
+    }
+    const a = document.activeElement;
+    if (a && a !== document.body && a.isConnected) return;
+    // The page's main action first, else the first control that really takes focus (some are
+    // inside closed sections or disabled, and focus() on those does nothing).
+    const all = [
+      ...document.querySelectorAll<HTMLElement>('[data-tv-focus]'),
+      ...document.querySelectorAll<HTMLElement>(
+        'main button, main a[href], main input, main select, main summary',
+      ),
+    ];
+    for (const el of all) {
+      el.focus();
+      if (document.activeElement === el) return;
+    }
+  };
+  new MutationObserver(land).observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributeFilter: ['disabled'],
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'GoBack' || e.key === 'BrowserBack') {
+      if (closeTopLayer()) e.preventDefault();
+    }
+  });
+  if (isApp()) {
+    const { App } = await import('@capacitor/app');
+    await App.addListener('backButton', ({ canGoBack }) => {
+      if (closeTopLayer()) return;
+      if (canGoBack) window.history.back();
+      else void App.exitApp();
+    });
+  }
+  land();
+}

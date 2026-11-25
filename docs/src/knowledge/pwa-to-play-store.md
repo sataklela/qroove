@@ -78,6 +78,8 @@ Web app (PWA) works in any browser
       │                        web isTv() (also ?tv=1 for browsers/laptops on projectors)
       ├─ Remote control ...... WICG spatial-navigation polyfill (TV only), page's main action
       │                        gets focus (data-tv-focus), Back closes sheets first
+      ├─ Test ................ Android 11 TV emulator in CI (runner has KVM) drives a debug build
+      │                        pointed at the branch server; browser TV test at 960×540
       └─ 10-foot layout ...... overscan-safe padding (48/27 dp), bigger type and targets,
                                always-visible focus ring, host screen with a large join QR
 ```
@@ -116,6 +118,10 @@ Web app (PWA) works in any browser
   Always smoke-test a shrunk build on a device before release.
 - **Spatial-navigation polyfill hooks keys on window `load`**: when loaded later (dynamic import),
   catch its `load` listener and run it (see `setUpTv` in `native.ts`).
+- **TV WebViews are old**: the Android 11 TV image ships WebView 90 (real projectors may too). It has
+  no `color-mix()` (buttons lost their background → invisible text) and no `dvh` units; added
+  `@supports not (color: color-mix(...))` fallbacks and `vh` before every `dvh`. Playwright's
+  `connectOverCDP` also fails on it, so the TV smoke test speaks raw CDP over a WebSocket.
 - **`focus()` silently fails** on controls inside a closed `<details>` or disabled: try candidates
   until one really takes focus.
 - **CSS class on `<body>`**: `.console` matched both `body.console` and `div.console`; scope selectors.
