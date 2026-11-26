@@ -374,3 +374,17 @@ export function reviewDuplicate(
     return { ok: true as const, version: commit(c, w) };
   });
 }
+
+/** Fills in a song's missing cover (e.g. a starter song once its YouTube video is known). */
+export function setArtwork(
+  deps: Deps,
+  input: { eventId: string; requestId: string; artworkUrl: string },
+) {
+  return runCommand(deps, input.eventId, {}, async (c) => {
+    const req = await c.tx.getRequest(input.requestId);
+    if (!req || req.artworkUrl) return { ok: true as const, version: c.event.version };
+    const w = await loadWork(c);
+    w.putRequest({ ...req, artworkUrl: input.artworkUrl, updatedAt: c.now });
+    return { ok: true as const, version: commit(c, w) };
+  });
+}

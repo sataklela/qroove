@@ -5,6 +5,22 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Organiser screen fits the device it runs on.** Three arrangements, picked automatically:
+  *portrait* (phones, upright tablets) keeps the swipe pages; *split* (landscape tablets, laptops,
+  monitors) puts the full QR beside the queue with the controls under it; *wall* (TVs, projectors,
+  screens 1920 px and wider) shows everything on one screen with every control open and the QR as a
+  small, softer-contrast badge in the corner. Menu → **Big-screen view** (or `?wall=1` / `?wall=0` /
+  `?wall=auto`) forces it on or off and is remembered on that device.
+
+### Fixed
+
+- Opening the organiser page and tapping **Start playing** no longer shows a false
+  "This event has already started" error.
+- Starter songs (from a Spotify playlist or YouTube) now show cover art: the YouTube video's thumbnail.
+- The footer on event pages names Sataklela OÜ, as on every other page.
+
 ### Changed
 
 - **New look ("Dancefloor")** on the site and in the app: the song that is playing leads the screen with

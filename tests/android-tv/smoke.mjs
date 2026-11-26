@@ -126,7 +126,7 @@ check((await focused()).includes('Host an event'), 'D-pad left moves it back');
 // 5. OK hosts an event; the join QR stays on screen.
 await key('DPAD_CENTER');
 await until(`location.pathname.startsWith('/admin/')`, 'OK hosts an event');
-await until(`!!document.querySelector('.tv-join .qr')`, 'big-screen join QR shown');
+await until(`!!document.querySelector('.console[data-layout=wall] .page.invite .qr')`, 'big-screen join QR shown');
 await sleep(3000);
 shot('host');
 for (const k of ['DPAD_DOWN', 'DPAD_DOWN', 'DPAD_UP', 'DPAD_RIGHT']) {

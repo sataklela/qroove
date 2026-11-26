@@ -585,6 +585,17 @@ export function registerRoutes(app: FastifyInstance, ctx: ApiContext) {
       artist: r.artist,
       durationMs: r.durationMs,
     });
+    // A Spotify starter song has no cover stored; the matched video's thumbnail stands in.
+    const first = videoIds[0];
+    if (first && !r.artworkUrl) {
+      void cmd
+        .setArtwork(deps, {
+          eventId: id,
+          requestId: rid,
+          artworkUrl: `https://i.ytimg.com/vi/${first}/mqdefault.jpg`,
+        })
+        .catch(() => undefined);
+    }
     return { videoIds };
   });
 

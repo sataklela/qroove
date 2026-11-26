@@ -2471,38 +2471,6 @@ html[data-tv] :is(a, button, input, select, textarea, summary, [tabindex]):focus
     transform: none;
   }
 }
-/* Big-screen organiser view: the player on the left, the way to join always on the right. */
-html[data-tv] div.console {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(200px, 28vw, 320px);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    'head join'
-    'pager join'
-    'dots join';
-  column-gap: 1.5rem;
-}
-html[data-tv] .console > .console-head {
-  grid-area: head;
-}
-html[data-tv] .console > .pager {
-  grid-area: pager;
-}
-html[data-tv] .console > .pager-dots {
-  grid-area: dots;
-}
-html[data-tv] .tv-join {
-  grid-area: join;
-  align-self: center;
-  text-align: center;
-}
-html[data-tv] .tv-join .qr {
-  width: 100%;
-}
-html[data-tv] .tv-join .room-code {
-  font-size: 2rem;
-  margin: 0 0 0.5rem;
-}
 /* Hover-only affordances never show on a TV: row actions are always visible there. */
 html[data-tv] .song-actions {
   opacity: 1;
@@ -2788,7 +2756,154 @@ html[data-tv] .hero-title {
 .qrow.mine:not(.swipe) {
   box-shadow: inset 3px 0 0 var(--accent);
 }
-/* On TV the organiser's left column scrolls, so the remote can reach everything. */
+/* On TV the organiser's columns scroll, so the remote can reach everything. */
 html[data-tv] .page.live {
   overflow-y: auto;
+}
+
+/* ---- organiser console layouts (admin/layout.ts) ----------------------------------------------
+   portrait: the swipe pager above. split: queue | QR + controls. wall: everything on one screen,
+   the QR a soft badge in the corner. Grid and vh only: old TV WebViews (Chrome 90) must render it. */
+.live-a,
+.live-b {
+  display: contents;
+}
+.scan-hint {
+  margin: 0;
+  text-align: center;
+}
+.console[data-layout='split'] > .pager,
+.console[data-layout='wall'] > .pager {
+  display: grid;
+  overflow: hidden;
+  scroll-snap-type: none;
+  gap: 1rem;
+}
+.console[data-layout='split'] .page,
+.console[data-layout='wall'] .page {
+  height: auto;
+  min-height: 0;
+}
+/* split: the queue on the left; on the right the full QR, and the controls under it. */
+.console[data-layout='split'] > .pager {
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'live invite'
+    'live more';
+}
+.console[data-layout='split'] .page.live {
+  grid-area: live;
+  overflow-y: auto;
+}
+.console[data-layout='split'] .page.invite {
+  grid-area: invite;
+}
+.console[data-layout='split'] .page.invite .qr {
+  width: min(100%, 34vh);
+}
+.console[data-layout='split'] .page.more {
+  grid-area: more;
+  overflow-y: auto;
+}
+/* wall: song + player | queue + playback | every control open, the QR small under the controls. */
+.console[data-layout='wall'] > .pager {
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'live more'
+    'live invite';
+  height: 100%;
+}
+.console[data-layout='wall'] .page.live {
+  grid-area: live;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1rem;
+  overflow: hidden;
+}
+.console[data-layout='wall'] .live-a,
+.console[data-layout='wall'] .live-b {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+/* A TV WebView (960×540 CSS px) or a small projector: two columns, the left one scrolls. */
+@media (max-width: 1399px) {
+  .console[data-layout='wall'] > .pager {
+    grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr);
+  }
+  .console[data-layout='wall'] .page.live {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .console[data-layout='wall'] .live-a,
+  .console[data-layout='wall'] .live-b {
+    display: contents;
+  }
+}
+.console[data-layout='wall'] .page.more {
+  grid-area: more;
+  overflow-y: auto;
+}
+/* The way in, small in the bottom-right corner: readable from a phone, quiet from the room. */
+.console[data-layout='wall'] .page.invite {
+  grid-area: invite;
+  justify-self: end;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 0.75rem;
+  height: auto;
+  padding: 0.5rem 0.6rem;
+  border-radius: 14px;
+  background: rgba(20, 20, 24, 0.72);
+  overflow: visible;
+  opacity: 0.9;
+}
+.console[data-layout='wall'] .page.invite .share {
+  flex: none;
+  flex-direction: column-reverse;
+  gap: 0.25rem;
+}
+.console[data-layout='wall'] .page.invite .qr {
+  width: clamp(96px, 7.5vw, 170px);
+  border-radius: 6px;
+}
+/* Softer than black on white (about 10:1, still an easy scan), so it doesn't glare on a big screen. */
+.console[data-layout='wall'] .page.invite .qr rect {
+  fill: #cfcfcf;
+}
+.console[data-layout='wall'] .page.invite .qr path {
+  fill: #2a2a2a;
+}
+.console[data-layout='wall'] .page.invite .room-code {
+  font-size: 1.1rem;
+  margin: 0;
+  color: #e6e6e6;
+}
+.console[data-layout='wall'] .page.invite .scan-hint {
+  max-width: 7rem;
+  font-size: 0.8rem;
+  color: #bdbdbd;
+  text-align: right;
+}
+/* Big type on the wall, read from across the room. */
+.console[data-layout='wall'] .hero-title {
+  font-size: clamp(1.6rem, 2.6vw, 3.2rem);
+}
+body.console[data-layout='split'] .layout main {
+  width: min(90rem, 100%);
+}
+body.console[data-layout='wall'] .layout main {
+  width: 100%;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+/* `hidden` must win over the flex/grid display rules above (dots, the controls' tab row). */
+.console [hidden],
+.console[hidden] {
+  display: none !important;
 }

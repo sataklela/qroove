@@ -28,7 +28,7 @@ describe('Footer', () => {
 
   it('is one line everywhere else', () => {
     const { container } = at('/e/ABC123');
-    expect(container.textContent).toBe('Copyright © Sataklela 2026');
+    expect(container.textContent).toBe('Copyright © Sataklela OÜ 2026');
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 });

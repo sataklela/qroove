@@ -34,7 +34,7 @@ test('TV: the remote alone can host an event, and the way to join stays on scree
 
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/admin\//);
-  const join = page.getByRole('complementary', { name: 'Join this event' });
+  const join = page.getByRole('region', { name: 'Join this event' });
   await expect(join.getByRole('img', { name: /QR code to join/ })).toBeVisible();
   await expect(join.locator('.room-code')).toHaveText(/^[A-Z0-9]{3}-[A-Z0-9]{3}$/);
   // Focus is never stranded after the page changes: it lands on the main action.

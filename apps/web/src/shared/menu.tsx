@@ -6,6 +6,7 @@ import { ConnectionBadge } from '../attendee/ConnectionBadge';
 import { GenreDot, StyleSwatches } from './Genre';
 import type { Connection } from './useEventStream';
 import { ThemeToggle } from './ThemeToggle';
+import { setWallForced, useConsoleLayout } from '../admin/layout';
 
 interface HeaderEvent {
   rules: RulesSnapshot | null;
@@ -103,6 +104,9 @@ export function AppMenu() {
   } = useContext(RulesCtx);
   const [open, setOpen] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const layout = useConsoleLayout();
+  // The organiser console marks the body; only there does the big-screen view apply.
+  const onConsole = open && document.body.classList.contains('console');
   useEffect(() => {
     if (!open) return;
     const close = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
@@ -137,6 +141,19 @@ export function AppMenu() {
               </button>
               {showRules ? <RulesList rules={rules} /> : null}
             </div>
+          ) : null}
+          {onConsole ? (
+            <button
+              type="button"
+              className="btn ghost"
+              aria-pressed={layout === 'wall'}
+              onClick={() => {
+                setWallForced(layout !== 'wall');
+                setOpen(false);
+              }}
+            >
+              Big-screen view: {layout === 'wall' ? 'on' : 'off'}
+            </button>
           ) : null}
           <a href={BRAND.docsPath} className="btn ghost">
             Docs
