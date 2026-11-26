@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { AppRoutes } from './routes';
 import { isApp, isTv, listenForAppLinks, setUpTv } from './shared/native';
+import '@fontsource-variable/bricolage-grotesque/index.css';
 import './shared/styles/base.css';
 
 const theme = localStorage.getItem('qroove:theme');

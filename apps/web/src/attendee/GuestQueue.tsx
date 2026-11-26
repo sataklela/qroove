@@ -2,6 +2,7 @@ import type { EventPublicView, MyRequests, RequestView } from '@qroove/contracts
 import { GENRES, type GenreId } from '@qroove/config';
 import { GenreSwatch } from '../shared/Genre';
 import { SwipeRow } from '../shared/SwipeRow';
+import { artSrc } from '../shared/NowPlayingHero';
 import { formatClock } from '../shared/time';
 import { etaText } from './eta';
 import { breakMinutes, queueRows } from './queueRows';
@@ -74,10 +75,19 @@ export function GuestQueue({
             return (
               <SwipeRow
                 key={q.requestId}
-                className={`${r ? 'mine' : ''}${q.overflow ? ' overflow' : ''}`}
+                className={`${r ? 'mine' : ''}${q.overflow ? ' overflow' : ''}${q.artworkUrl ? ' has-art' : ''}`}
                 onRemove={r ? () => onWithdraw(r) : undefined}
                 removeLabel={`Withdraw ${q.title}`}
               >
+                {q.artworkUrl ? (
+                  <img
+                    className="qthumb"
+                    src={artSrc(q.artworkUrl)}
+                    alt=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : null}
                 <span className="title">{q.title}</span>
                 <span className="muted small">
                   <GenreSwatch style={q.style} size={12} /> {q.artist ?? ''}

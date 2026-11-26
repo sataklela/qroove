@@ -21,8 +21,9 @@ Everything is on one screen. Only the queue scrolls.
 
 - **Status pill (top right):** _Live_, _Paused_, _On a break_, _Not started_ or _Ended_; _Reconnecting_ or _Offline_
   when your signal is the problem.
-- **Now playing:** the current song and its genre.
-- **The queue:** every song still to come, in the order it will play. Yours have a coloured edge and say **Yours**,
+- **Now playing:** the current song with its cover, its genre and artist, who asked for it, and how far it
+  has played.
+- **The queue:** every song still to come, with its cover, in the order it will play. Yours have a coloured edge and say **Yours**,
   with `~N min` when the queue can predict it. Songs that would run past the planned end are greyed and labelled
   _After end time_; they may still play if the organiser extends the time. Songs the organiser pre-loaded give way
   to requests, so yours moves ahead of them.

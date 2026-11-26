@@ -5,6 +5,16 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **New look ("Dancefloor")** on the site and in the app: the song that is playing leads the screen with
+  its cover art, a soft glow in the cover's own colours, the title in a display face (Bricolage Grotesque,
+  bundled, so it works offline) and a progress bar with times; it also shows who asked for it. Queue rows
+  have cover thumbnails and your own songs an accent edge. Cards use layered surfaces instead of outlines;
+  **Host an event** is a pill. The organiser page shows the same hero while a song plays (not when idle),
+  and on a TV the organiser's column scrolls so the remote reaches everything. Motion is off with
+  *reduce motion*; every new style degrades on old WebViews.
+
 ## [0.4.1] — 2026-11-25
 
 ### Added

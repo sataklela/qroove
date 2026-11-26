@@ -190,7 +190,7 @@ function Loaded({ slug, eventId }: { slug: string; eventId: string }) {
   return (
     <div className="deck console">
       <DeckHeader view={view} connection={connection} codename={mine?.nickname ?? null} />
-      <NowPlaying view={view} />
+      <NowPlaying view={view} clockOffset={clockOffset} />
       {status ? <p className="muted small deck-line">{status}</p> : null}
       <GuestQueue
         view={view}

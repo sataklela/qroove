@@ -2545,3 +2545,250 @@ html[data-tv] .layout {
 html[data-tv] .player-console {
   max-height: 50vh;
 }
+
+/* =============================================================================================
+   "Dancefloor" (2026-11-25): the music is the hero. A display face for what matters (song titles,
+   headings, the room code), layered surfaces instead of outlines, cover art with a glow of its own
+   colours, and motion only where something really changes. Old WebViews: no new CSS feature below
+   is needed for the page to work; each degrades to a plain, readable layout.
+   ============================================================================================= */
+:root {
+  --font-display:
+    'Bricolage Grotesque Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-display: clamp(1.6rem, 1.1rem + 2.4vw, 2.6rem);
+  --fs-title: clamp(1.3rem, 1rem + 1.4vw, 1.9rem);
+  --surface-1: #17171d;
+  --surface-2: #1f1f27;
+  --surface-3: #2a2a34;
+  --radius-lg: 20px;
+  --shadow-soft: 0 10px 30px rgb(0 0 0 / 0.35);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+:root[data-theme='light'] {
+  --surface-1: #f7f2fa;
+  --surface-2: #efe7f5;
+  --surface-3: #e4d9ee;
+  --shadow-soft: 0 10px 30px rgb(60 40 90 / 0.12);
+}
+h1,
+h2.card-title,
+.landing h1,
+.room-code,
+.hero-title,
+.next-title,
+.now-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+.landing h1 {
+  font-size: var(--fs-display);
+  font-weight: 750;
+}
+/* Cards: a surface and a soft shadow rather than an outline. */
+.card {
+  background: var(--surface-2);
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+/* ---- now-playing hero ---- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  flex: none;
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-soft);
+  padding: 1rem;
+}
+.hero-glow {
+  position: absolute;
+  inset: -30%;
+  z-index: -1;
+  background-size: cover;
+  background-position: center;
+  filter: blur(48px) saturate(1.6);
+  opacity: 0.55;
+  transform: translateZ(0);
+}
+.hero-glow-genre {
+  background: radial-gradient(circle at 30% 40%, var(--c, var(--accent)), transparent 65%);
+  opacity: 0.35;
+}
+.hero-idle .hero-glow {
+  opacity: 0.18;
+}
+:root[data-theme='light'] .hero-glow {
+  opacity: 0.35;
+}
+.hero-body {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+.hero-art {
+  flex: none;
+  width: clamp(72px, 22vw, 120px);
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--c, var(--accent)), var(--surface-3));
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+.hero-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.hero-idle .hero-art {
+  opacity: 0.5;
+}
+.hero-text {
+  min-width: 0;
+  flex: 1;
+}
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgb(34 197 94 / 0.6);
+  animation: live-pulse 1.8s ease-out infinite;
+}
+@keyframes live-pulse {
+  70% {
+    box-shadow: 0 0 0 8px rgb(34 197 94 / 0);
+  }
+}
+.hero-title {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 750;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.hero .track-meta {
+  font-size: 0.85rem;
+}
+.hero-for {
+  margin: 0.15rem 0 0;
+}
+.hero-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+.hero-progress .bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.15);
+  overflow: hidden;
+}
+:root[data-theme='light'] .hero-progress .bar {
+  background: rgb(0 0 0 / 0.12);
+}
+.hero-progress .bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+.hero-progress .times {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.hero-idle-text p {
+  margin: 0;
+}
+/* A new song arrives: rises and fades in. */
+.song-in {
+  animation: song-in 0.55s var(--ease-out);
+}
+@keyframes song-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .song-in,
+  .live-dot,
+  .swap-in {
+    animation: none;
+  }
+  .hero-progress .bar span {
+    transition: none;
+  }
+}
+
+/* ---- home ---- */
+.landing-actions .btn.primary.landing-host {
+  border-radius: 999px;
+  padding: 0.75rem 1.6rem;
+  font-size: 1.1rem;
+}
+
+/* ---- TV: the hero is the big picture ---- */
+html[data-tv] .hero {
+  padding: 1.25rem;
+}
+html[data-tv] .hero-art {
+  width: 140px;
+}
+html[data-tv] .hero-title {
+  font-size: 1.8rem;
+}
+
+/* ---- queue: small cover thumbnails ---- */
+.qrow-body,
+.qrow:not(.swipe) {
+  position: relative;
+}
+.qrow.has-art:not(.swipe),
+.qrow.has-art .qrow-body {
+  padding-left: 3.6rem;
+}
+.qthumb {
+  position: absolute;
+  left: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+}
+.qrow {
+  background: var(--surface-2);
+}
+.qrow.mine .qrow-fg,
+.qrow.mine:not(.swipe) {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+/* On TV the organiser's left column scrolls, so the remote can reach everything. */
+html[data-tv] .page.live {
+  overflow-y: auto;
+}
