@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { artworkOf } from './views';
+import { artworkOf } from './views.js';
 
 describe('artworkOf', () => {
   it('keeps stored artwork', () => {
