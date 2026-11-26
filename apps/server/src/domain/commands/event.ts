@@ -199,7 +199,8 @@ export function startEvent(deps: Deps, input: AdminInput) {
       if (c.event.state === 'ENDED' || c.event.state === 'ARCHIVED') {
         throw new DomainError('EVENT_ENDED');
       }
-      throw new DomainError('VALIDATION', 'This event has already started.');
+      // Already running (the page's auto-start and Start playing can both ask): nothing to do.
+      return { ok: true as const, version: c.event.version };
     }
     const w = await loadWork(c);
     // The planned time starts counting now; breaks are centred on their points of that span.
