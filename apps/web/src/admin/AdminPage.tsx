@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { ApiError } from '../shared/api';
 import { formatCode } from '../shared/code';
@@ -6,6 +6,7 @@ import { useMenuRules } from '../shared/menu';
 import { useLockedPage } from '../shared/useLockedPage';
 import { isTv } from '../shared/native';
 import { PlayerConsole } from '../player/PlayerConsole';
+import { NowPlaying } from '../attendee/NowPlaying';
 import { commands } from './adminApi';
 import {
   CarryOverPanel,
@@ -79,6 +80,11 @@ export default function AdminPage() {
     return () => document.body.classList.remove('console');
   }, []);
 
+  // The server's clock, sampled when each view arrives, so the song's progress bar is right.
+  const serverNow = state?.view.serverNow;
+  // eslint-disable-next-line react-hooks/purity -- Date.now() is sampled once per server view
+  const clockOffset = useMemo(() => (serverNow ? serverNow - Date.now() : 0), [serverNow]);
+
   if (!state) {
     return error ? <AccessLost error={error} /> : <p role="status">Loading…</p>;
   }
@@ -130,6 +136,10 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
+              {/* Only while a song (or the radio) is on: the player card already says when nothing is. */}
+              {live && (v.nowPlaying || v.radio) ? (
+                <NowPlaying view={v} clockOffset={clockOffset} showRun={false} />
+              ) : null}
               {live ? (
                 <PlayerConsole eventId={eventId} stream={stream} extrasSlot={extrasSlot} />
               ) : null}

@@ -130,6 +130,9 @@ importers:
       '@capacitor/core':
         specifier: 8.6.0
         version: 8.6.0
+      '@fontsource-variable/bricolage-grotesque':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@qroove/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -1395,6 +1398,9 @@ packages:
   '@firebase/util@1.15.3':
     resolution: {integrity: sha512-c/z/gaIlaaLZEuGbE6sLUuJ61tskg1JghvhcNQzW948ASBinbVBBRnZTC4b4yt4LaEtJQkYlyzqLHcutFwEIvA==}
     engines: {node: '>=20.0.0'}
+
+  '@fontsource-variable/bricolage-grotesque@5.3.0':
+    resolution: {integrity: sha512-TLi9Q4hJjS2UvoTMRSS2nHu6c4R56lAw60NR9QYtVRCHn0XtsFpiEhNffZ8Glsoxu6wEEwLKBP8lb94J52PNBA==}
 
   '@google-cloud/cloud-sql-connector@1.12.1':
     resolution: {integrity: sha512-Vilc4J0L+rU+4yjxZpBFn8+bvPoibfcnP4cAAFUsON/GiT0p9qwqLKh7J2q4DaG8WnAgesfn/F2Hb+CkEZn3VA==}
@@ -7716,6 +7722,8 @@ snapshots:
   '@firebase/util@1.15.3':
     dependencies:
       tslib: 2.8.1
+
+  '@fontsource-variable/bricolage-grotesque@5.3.0': {}
 
   '@google-cloud/cloud-sql-connector@1.12.1':
     dependencies:
