@@ -21,4 +21,4 @@ export const copyrightLine = (): string =>
   `Copyright © ${BRAND.company.name} ${BRAND.copyrightYear}`;
 /** The thin footer on every page after the landing page. */
 export const shortCopyrightLine = (): string =>
-  `Copyright © ${BRAND.company.shortName} ${BRAND.copyrightYear}`;
+  `Copyright © ${BRAND.company.name} ${BRAND.copyrightYear}`;

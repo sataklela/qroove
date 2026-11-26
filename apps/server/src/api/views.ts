@@ -15,6 +15,15 @@ import { sha256 } from '../domain/ids.js';
 
 const QUEUE_LIMIT = 50;
 
+const YT_ID = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/;
+
+/** The song's cover; starter songs and pasted YouTube links have none stored, so use the video's thumbnail. */
+export function artworkOf(r: Pick<RequestDoc, 'artworkUrl' | 'sourceUrl'>): string | null {
+  if (r.artworkUrl) return r.artworkUrl;
+  const id = r.sourceUrl ? YT_ID.exec(r.sourceUrl)?.[1] : undefined;
+  return id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : null;
+}
+
 function trackView(r: RequestDoc, nicknames: Record<string, string | null>): TrackView {
   return {
     requestId: r.id,
@@ -22,7 +31,7 @@ function trackView(r: RequestDoc, nicknames: Record<string, string | null>): Tra
     artist: r.artist,
     style: r.style,
     durationMs: r.durationMs,
-    artworkUrl: r.artworkUrl,
+    artworkUrl: artworkOf(r),
     ownerNickname: nicknames[r.ownerId] ?? null,
   };
 }
@@ -117,7 +126,7 @@ export function requestView(r: RequestDoc, agg: EventAggregate): RequestView {
     style: r.style,
     provider: r.provider,
     durationMs: r.durationMs,
-    artworkUrl: r.artworkUrl,
+    artworkUrl: artworkOf(r),
     acceptedSeq: r.acceptedSeq,
     position: item?.position ?? null,
     predictedStartMs: item?.predictedStartMs ?? null,

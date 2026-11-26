@@ -4,7 +4,7 @@ import { ApiError } from '../shared/api';
 import { formatCode } from '../shared/code';
 import { useMenuRules } from '../shared/menu';
 import { useLockedPage } from '../shared/useLockedPage';
-import { isTv } from '../shared/native';
+import { useConsoleLayout } from './layout';
 import { PlayerConsole } from '../player/PlayerConsole';
 import { NowPlaying } from '../attendee/NowPlaying';
 import { commands } from './adminApi';
@@ -59,6 +59,8 @@ export default function AdminPage() {
   const [page, setPage] = useState<Page>('live');
   const [sub, setSub] = useState<Sub | null>('settings');
   const pager = useRef<HTMLDivElement>(null);
+  const layout = useConsoleLayout();
+  const swipe = layout === 'portrait';
   useLockedPage();
   // The event starts by itself when the organiser's page opens; Pause is there if they want it.
   const autoStarted = useRef(false);
@@ -79,6 +81,13 @@ export default function AdminPage() {
     document.body.classList.add('console');
     return () => document.body.classList.remove('console');
   }, []);
+  // The page's width follows the arrangement (base.css: body[data-layout]).
+  useEffect(() => {
+    document.body.dataset.layout = layout;
+    return () => {
+      delete document.body.dataset.layout;
+    };
+  }, [layout]);
 
   // The server's clock, sampled when each view arrives, so the song's progress bar is right.
   const serverNow = state?.view.serverNow;
@@ -95,6 +104,7 @@ export default function AdminPage() {
   const cmd = commands(eventId, csrf ?? state.csrf);
   const props = { s: state, cmd, refresh };
   const live = v.state === 'ACTIVE' || v.state === 'PAUSED' || v.state === 'TRANSFERRING';
+  const all = layout === 'wall';
   const SUBS: Array<[Sub, string]> = [
     ['settings', 'Settings'],
     ['sound', 'Sound'],
@@ -107,22 +117,16 @@ export default function AdminPage() {
     setPage(PAGES[i]![0]);
   };
   return (
-    <div className="console">
+    <div className="console" data-layout={layout}>
       <header className="console-head">
         <h1 className="sr-only">{v.name}</h1>
         <ErrorLine error={error} />
       </header>
-      {isTv() && !ended ? (
-        // Big screen: the way in stays on show, so guests can join from across the room.
-        <aside className="tv-join" aria-label="Join this event">
-          <SharePanel joinUrl={state.joinUrl} name={v.name} slug={v.slug} />
-          <p className="muted">Scan to add songs</p>
-        </aside>
-      ) : null}
       <div
         ref={pager}
         className="pager"
         onScroll={(e) => {
+          if (!swipe) return;
           const el = e.currentTarget;
           const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
           const next = PAGES[Math.min(PAGES.length - 1, Math.max(0, i))]![0];
@@ -137,23 +141,40 @@ export default function AdminPage() {
           ) : (
             <>
               {/* Only while a song (or the radio) is on: the player card already says when nothing is. */}
-              {live && (v.nowPlaying || v.radio) ? (
-                <NowPlaying view={v} clockOffset={clockOffset} showRun={false} />
-              ) : null}
-              {live ? (
-                <PlayerConsole eventId={eventId} stream={stream} extrasSlot={extrasSlot} />
-              ) : null}
-              <PlaybackPanel {...props} />
-              <ModerationPanel {...props} />
+              {/* Two groups: side by side on a big screen, one column (display: contents) elsewhere. */}
+              <div className="live-a">
+                {live && (v.nowPlaying || v.radio) ? (
+                  <NowPlaying view={v} clockOffset={clockOffset} showRun={false} />
+                ) : null}
+                {live ? (
+                  <PlayerConsole eventId={eventId} stream={stream} extrasSlot={extrasSlot} />
+                ) : null}
+              </div>
+              <div className="live-b">
+                <PlaybackPanel {...props} />
+                <ModerationPanel {...props} />
+              </div>
             </>
           )}
         </section>
-        <section className="page" role="tabpanel" aria-label="Invite" id="page-invite">
+        <section
+          className="page invite"
+          role={swipe ? 'tabpanel' : 'region'}
+          aria-label={layout === 'wall' ? 'Join this event' : 'Invite'}
+          id="page-invite"
+          hidden={layout === 'wall' && ended}
+        >
           <SharePanel joinUrl={state.joinUrl} name={v.name} slug={v.slug} />
+          {swipe ? null : <p className="muted small scan-hint">Scan to add songs</p>}
         </section>
-        <section className="page more" role="tabpanel" aria-label="More" id="page-more">
+        <section
+          className="page more"
+          role={swipe ? 'tabpanel' : 'region'}
+          aria-label={swipe ? 'More' : 'Event controls'}
+          id="page-more"
+        >
           <div className="stack">
-            <div className="row">
+            <div className="row" hidden={all}>
               {SUBS.filter(([id]) =>
                 id === 'settings' ? !ended : id === 'sound' ? live : true,
               ).map(([id, label]) => (
@@ -168,15 +189,18 @@ export default function AdminPage() {
                 </button>
               ))}
             </div>
-            {sub === 'handover' ? <HandoverPanel {...props} eventId={eventId} /> : null}
-            {sub === 'settings' && !ended ? <SettingsPanel {...props} /> : null}
+            {/* On the wall every panel is open: nothing to tap through from across the room. */}
+            {all || sub === 'settings' ? (!ended ? <SettingsPanel {...props} /> : null) : null}
             {/* Always mounted: the player draws its sound check and radio switch into it. */}
-            <div ref={setExtrasSlot} hidden={sub !== 'sound'} />
-            {sub === 'end' ? <EndPanel {...props} /> : null}
+            <div ref={setExtrasSlot} hidden={!(all ? live : sub === 'sound')} />
+            {all || sub === 'handover' ? <HandoverPanel {...props} eventId={eventId} /> : null}
+            {all || sub === 'end' ? <EndPanel {...props} /> : null}
           </div>
         </section>
       </div>
-      <nav className="pager-dots" role="tablist" aria-label="Organiser sections">
+      <nav
+        hidden={!swipe}
+        className="pager-dots" role="tablist" aria-label="Organiser sections">
         {PAGES.map(([id, label], i) => (
           <button
             key={id}

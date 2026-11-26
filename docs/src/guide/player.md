@@ -13,8 +13,10 @@ projector**.
 - **Phone:** use the [Android app](/guide/android) if you can: it keeps the screen on and carries on
   through a weak network for up to two songs.
 - **TV or projector:** install the Android app on it and host from there with the remote. The big
-  screen shows what is playing, what is next, and a large room code and QR so guests join from across
-  the room. On a laptop connected to a projector, open the site with `?tv=1` for the same layout.
+  screen shows the song, the queue and every control on one screen, with a small QR in the corner so
+  guests join from across the room. A laptop driving a projector at 1920 px or wider gets the same
+  view by itself; otherwise turn on menu → **Big-screen view** (see [Phone, laptop or big
+  screen](/guide/admin#phone-laptop-or-big-screen)).
 
 ## Pausing and skipping
 

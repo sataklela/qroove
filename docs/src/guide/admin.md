@@ -94,6 +94,19 @@ purpose, use **Hand over** (below) before you leave.
 
 ![Settings on the organiser's More page](/screens/admin-settings.png){width=280}
 
+## Phone, laptop or big screen
+
+The organiser screen arranges itself for the device:
+
+| Device | What you see |
+|---|---|
+| Phone, or a tablet held upright | Swipe between **Playing**, **Invite** (QR) and **More** (settings, sound, hand over, end). |
+| Tablet in landscape, laptop, desktop monitor | The queue on the left; the QR to join on the right, with the controls under it. Nothing to swipe. |
+| TV, projector, or a screen 1920 px or wider | Everything on one screen: song and player, queue, and every control open. The QR is a small, softer badge in the bottom-right corner, so it doesn't glare in a dark room. |
+
+To choose for yourself, open the menu (☰) and tap **Big-screen view**. The choice is remembered on that
+device. A link ending in `?wall=1` turns it on, `?wall=0` off and `?wall=auto` back to automatic.
+
 ## Hand over to someone else
 
 **Hand over admin** creates a link that works once, for 10 minutes. Send it privately. When the new organiser
