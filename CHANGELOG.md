@@ -5,6 +5,8 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-11-27
+
 ### Added
 
 - **Organiser screen fits the device it runs on.** Three arrangements, picked automatically:
