@@ -2907,3 +2907,14 @@ body.console[data-layout='wall'] .layout main {
 .console[hidden] {
   display: none !important;
 }
+/* A phone on its side (about 400 px tall): the Playing page scrolls, so the player card and
+   Start playing are never clipped. */
+@media (max-height: 500px) {
+  .console[data-layout='portrait'] .page.live {
+    overflow-y: auto;
+  }
+  .console[data-layout='portrait'] .page.live .queue {
+    flex: none;
+    max-height: 70vh;
+  }
+}

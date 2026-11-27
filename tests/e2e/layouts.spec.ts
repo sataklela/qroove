@@ -81,3 +81,15 @@ test('portrait phone keeps the swipe pages', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'Invite' })).toBeVisible();
   await page.screenshot({ path: 'test-results/layout-portrait-412.png' });
 });
+
+test('phone on its side: the Playing page scrolls, nothing is clipped', async ({ page }) => {
+  await page.setViewportSize({ width: 915, height: 412 });
+  await host(page);
+  expect(await layout(page)).toBe('portrait');
+  const live = page.locator('.page.live');
+  expect(await live.evaluate((el) => getComputedStyle(el).overflowY)).toBe('auto');
+  const start = page.getByRole('button', { name: /Start playing|Start event/ }).first();
+  await start.scrollIntoViewIfNeeded();
+  await expect(start).toBeInViewport();
+  await page.screenshot({ path: 'test-results/layout-phone-landscape.png' });
+});

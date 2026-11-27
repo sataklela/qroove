@@ -5,6 +5,10 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A phone held sideways: the organiser's Playing page scrolls, so the player card and **Start playing** are never cut off.
+
 ## [0.4.2] — 2026-11-27
 
 ### Added
